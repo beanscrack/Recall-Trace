@@ -8,7 +8,8 @@ Owners reflect the team's original assignments; this checklist does not establis
 | B2 | Us: backend / replay | Inspect sandbox data and indexes without reseeding | Done: connection passed; both 1024-dimensional vector indexes are READY and queryable; existing demo records preserved |
 | B3 | Us: backend / replay | Verify real Voyage embeddings | Done: document and query embeddings each returned 1024 dimensions |
 | B4 | Us: backend / replay | Validate live retrieval, expiry, quarantine, and tenant boundaries | Done: six live nonempty searches passed tenant/status/expiry checks; both cross-tenant direct reads were refused and logged (Voyage paced at 21-second intervals) |
-| B5 | Us: backend / replay | Run real LLM decision and replay using current code | Waiting for local model/key and custom base URL if applicable; provider set to OpenAI-compatible; offline replay tests pass |
+| B5 | Us: backend / replay | Run real LLM decision and replay using current code | Blocked externally: OpenAI gpt-4.1-mini is configured, but live preflight returns HTTP 429 / credit_balance_exhausted; fresh decision/replay checker is ready |
+| B6 | Us: backend / replay | Verify live API integration and failed-agent behavior | Done: real Atlas/Voyage API checks passed; stored decision/replay/verdict serialization and tenant guards passed; failure regression tests confirm no tool execution or decision write |
 | C1 | Teammate 1: correction | Tighten evidence eligibility | Open: require verified evidence about the same service; handle unavailable evidence index deliberately |
 | C2 | Teammate 1: correction | Verify correction approval and failure handling | Partial: existing Atlas correction verified (quarantine, replacement, links, version, embedding dimensions, reviewer); fresh approval and failure handling remain untested |
 | F1 | Teammate 2: frontend | Replace mock data with API responses | Open on main: Run, Contest, Replay, Verdict, Approve, Reset, Rerun; handle loading and failures |
@@ -22,10 +23,24 @@ Seeding replaces demo documents. Existing Atlas data includes decisions, replay,
 
 ## Verified in this workspace
 
-- 20 offline checks passed: replay/API (15), Atlas setup readiness (2), DNS configuration (3).
+- 22 offline checks passed: replay/API (15), Atlas setup readiness (2), DNS configuration (3), failed-agent behavior (2).
 - Live application Atlas ping and real Voyage document/query embeddings passed.
 - Both vector indexes are READY/queryable with 1024-dimensional vector fields.
 - Six live retrieval cases returned only eligible same-tenant memories; both direct-read refusal checks were logged.
 - Existing approved correction links, version increment, active/quarantined states, embedding dimensions, and reviewer metadata passed inspection.
-- Stored decisions show an unsafe action followed by a rollback rerun, but fresh LLM execution in this workspace is still waiting for credentials.
+- Stored decisions show an unsafe action followed by a rollback rerun, but fresh LLM execution in this workspace is blocked by OpenAI API credits (HTTP 429 / credit_balance_exhausted).
 - No collections were reset or reseeded. Live retrieval tests added their normal access-log entries.
+
+## Repeatable checks
+
+Run from `backend/`:
+
+```bash
+.venv/bin/python -m unittest discover -s scripts -p "*_test.py" -v
+.venv/bin/python scripts/demo_check.py
+# After API credits are available:
+.venv/bin/python scripts/flip_test.py
+.venv/bin/python scripts/demo_check.py --execute
+```
+
+`demo_check.py` uses real Atlas/Voyage through FastAPI in-process HTTP requests. Default mode checks health, session headers, tenant memory lists/search, logged refusal, and stored decision/replay/verdict responses. `--execute` first checks the real LLM before any retrieval/write, then creates a new decision/replay using current active memories and checks persistence and unchanged simulator state during replay. It does not reset/reseed data or force an action/culprit. Exit codes: 0 passed, 1 failed assertion, 2 external/configuration blockage.

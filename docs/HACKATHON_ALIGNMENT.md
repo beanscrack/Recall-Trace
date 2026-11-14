@@ -74,6 +74,8 @@ Atlas and Voyage are now configured in the local ignored `.env`. The backend sup
 
 The strengthened isolation script passed all six live nonempty searches with tenant, active-status, and expiry assertions, plus both refused cross-tenant direct reads and their access logs. Voyage returned a 3-RPM limit during the first attempt; rerunning with `--interval 21` passed. No demo data was reset or reseeded.
 
-Existing Atlas records show `disable_fraud_checks`, an approved correction, and a `rollback_deployment` rerun. Correction status, version links, reviewer metadata, and replacement embedding dimensions passed inspection. These stored records do not establish that a fresh run using the current local configuration passes. The local provider is set to OpenAI-compatible, but the model/key (and base URL if custom) are still required.
+Existing Atlas records show `disable_fraud_checks`, an approved correction, and a `rollback_deployment` rerun. Correction status, version links, reviewer metadata, and replacement embedding dimensions passed inspection. These stored records do not establish that a fresh run using the current local configuration passes. OpenAI gpt-4.1-mini is now configured locally, but the live preflight returns HTTP 429 / credit_balance_exhausted.
 
 All 20 offline backend checks passed. Current task ownership and remaining work are tracked in [TASKS.md](TASKS.md).
+
+A subsequent `demo_check.py` run passed live Atlas/Voyage API checks, session and tenant guards, refusal logging, and stored decision/replay/verdict serialization using in-process HTTP. All 22 offline checks passed, including failure regression tests confirming no simulated action or decision write after retrieval/LLM failure. The `--execute` path reports the billing blockage before touching demo data; fresh OpenAI replay remains unverified.

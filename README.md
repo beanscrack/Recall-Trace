@@ -101,7 +101,9 @@ cd backend
 .venv/bin/python scripts/replay_test.py       # offline mocked LLM and collection tests
 .venv/bin/python scripts/atlas_setup_test.py  # offline index-readiness checks
 .venv/bin/python scripts/db_dns_test.py       # offline opt-in DNS checks
+.venv/bin/python scripts/agent_failure_test.py # offline failed-agent behavior
 .venv/bin/python scripts/isolation_check.py  # LIVE Atlas + Voyage check
+.venv/bin/python scripts/demo_check.py       # LIVE API checks using existing data
 ```
 
 | Area | Current state |
@@ -119,3 +121,5 @@ For a Voyage account limited to 3 requests/minute, let prior requests age out an
 ## Development tools
 
 `.mcp.json` configures the local MongoDB MCP server using `tools/mongodb-mcp.sh`. It reads the root `.env` and defaults to read-only. The application uses PyMongo directly. MongoDB's Agent Skills and query-prompting guidance from the resource guide are useful development aids; they are not application runtime dependencies.
+
+For a fresh real-model decision and replay, run `scripts/flip_test.py`, then `scripts/demo_check.py --execute` from `backend/`. The latter checks LLM availability before any retrieval/write and never resets existing demo data. It uses current active memories, so it does not force the original bad action or an influential-memory result. The current OpenAI key is configured locally, but live execution is blocked by exhausted API credits. See [team tasks](docs/TASKS.md) for the latest test results.
