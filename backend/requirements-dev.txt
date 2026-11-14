@@ -1,0 +1,4 @@
+-r requirements.txt
+# Optional browser QA and demo-video encoding; not needed by the deployed API.
+playwright
+imageio-ffmpeg

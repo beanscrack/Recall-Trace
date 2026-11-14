@@ -77,10 +77,10 @@ function Section({ n, title, active, children }: { n: string; title: string; act
   }, [active])
   return (
     <section ref={ref} className={`mt-16 scroll-mt-6 transition-opacity duration-150 ${active ? '' : 'opacity-30'}`}>
-      <div className="mb-5 flex items-baseline gap-3 border-b border-line pb-3 text-xs uppercase tracking-[0.14em] text-dim">
+      <h2 className="mb-5 flex items-baseline gap-3 border-b border-line pb-3 text-xs uppercase tracking-[0.14em] text-dim">
         <span className="font-mono">{n}</span>
         <span>{title}</span>
-      </div>
+      </h2>
       {active && children}
     </section>
   )
@@ -142,7 +142,8 @@ function ReplayTable({ decision, replay }: { decision: Decision; replay: Replay 
   }, [total])
 
   const rows = [
-    { key: 'baseline', text: 'Nothing removed (baseline)', id: '', actions: replay.baseline.actions, flip: 1 - replay.baseline.stability, culprit: false },
+    { key: 'baseline', text: 'Nothing removed (baseline)', id: '', actions: replay.baseline.actions,
+      flip: replay.baseline.actions.filter((a) => a !== null && a !== decision.action).length / replay.runs_per_variant, culprit: false },
     ...replay.ablations.map((a) => ({
       key: a.removed_memory_id,
       text: decision.retrieved.find((r) => r.memory_id === a.removed_memory_id)?.text ?? '',
@@ -419,14 +420,27 @@ export default function App() {
             {decision && replay && (
               <>
                 <ReplayTable key={replay._id} decision={decision} replay={replay} />
+                <p className="mt-4 text-sm text-dim">
+                  Baseline matches original action: {pct(replay.baseline.stability, 0)} ·{' '}
+                  {replay.baseline.actions.filter((a) => a !== null).length}/{replay.runs_per_variant} successful calls.
+                  Failed calls are not counted as action flips.
+                </p>
                 <p className="mt-8 mb-6 text-xl">
                   {culprit ? (
                     <>Remove memory <span className="font-mono text-culprit">{short(culprit.removed_memory_id)}</span> → decision flips <span className="font-mono">{pct(culprit.flip_rate, 0)}</span></>
                   ) : (
-                    <span className="font-mono text-base text-dim">{replay.status ?? 'no_clear_influence'} · no single memory flips the decision</span>
+                    <span className="text-base text-dim">
+                      {replay.status === 'incomplete' ? 'Some model requests failed. No memory can be attributed from this incomplete comparison.'
+                        : replay.status === 'unstable_baseline' ? 'The baseline did not reproduce the original action reliably enough to compare memory removals.'
+                        : 'No unique memory met the influence threshold. Rates below 2/3 and tied leaders remain inconclusive.'}
+                    </span>
                   )}
                 </p>
+                {!culprit && !approved && (
+                  <Btn busy={replayStep.busy} busyLabel="Replaying…" onClick={contest}>Retry replay</Btn>
+                )}
                 {culprit && !verdict && <Btn primary busy={verdictStep.busy} busyLabel="Checking…" onClick={propose}>Check against evidence</Btn>}
+                <p className="mt-4 text-xs text-dim">Repeated comparisons provide evidence of influence, not proof of causation.</p>
                 {verdictStep.busy && <div className="mt-3"><Wait text="Looking up newer verified evidence, drafting a correction…" /></div>}
                 <Err text={verdictStep.err} />
               </>

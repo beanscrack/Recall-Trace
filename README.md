@@ -6,7 +6,7 @@
 
 Agent memory governance with MongoDB Atlas, Vector Search, and counterfactual replay.
 
-[Architecture & build brief](docs/BRIEF.md) · [Team tasks](docs/TASKS.md) · [Hackathon alignment](docs/HACKATHON_ALIGNMENT.md) · [Contributing](CONTRIBUTING.md)
+[Live demo (temporary)](https://hero-momentum-depot-floating.trycloudflare.com) · [One-minute video](https://hero-momentum-depot-floating.trycloudflare.com/demo.mp4) · [Validation](docs/VALIDATION.md) · [Deployment](docs/DEPLOYMENT.md) · [Team tasks](docs/TASKS.md)
 
 </div>
 
@@ -54,7 +54,7 @@ Atlas stores memories, evidence, decision snapshots, replay results, verdicts, a
 | Memory, audit, and decision persistence | MongoDB Atlas Hackathon Sandbox / PyMongo |
 | Semantic retrieval | Atlas Vector Search |
 | Embeddings | Voyage AI (`voyage-4`, 1024 dimensions by default) |
-| Decision and correction drafts | Anthropic or OpenAI-compatible tool calling |
+| Decision and correction drafts | Nemotron 3.5 Super VL through OpenRouter; Anthropic/OpenAI-compatible adapters |
 | API | Python 3.12 / FastAPI |
 | Dashboard | React / TypeScript / Vite / Tailwind CSS |
 
@@ -107,25 +107,36 @@ cd backend
 .venv/bin/python scripts/demo_rehearsal.py   # LIVE full demo rehearsal against a running server (RESETS data)
 ```
 
-Verified live on 2026-11-14 against Atlas with `claude-haiku-5-5` and `voyage-4`:
+Verified on November 14, 2026 with real Atlas, Voyage, and Nemotron 3.5 Super VL through OpenRouter:
 
-| Area | Current state |
+| Area | Result |
 | --- | --- |
-| Gate 0 flip test | Passes 5/5 both ways on `claude-haiku-5-5`. Opus 5.5 / Sonnet 5.5 reject forced `tool_choice`; Opus 5 never follows the stale runbook |
-| Atlas retrieval and embeddings | Verified: stale INC-212 ranks first, expired freeze memory never returned; `isolation_check.py` passes; live Atlas ping and six tenant/status/expiry retrieval checks passed |
-| Snapshot replay | Verified: baseline 3/3, removing INC-212 flips 100%, other memories 0%; also covered by offline tests |
-| Evidence review and approval | Verified: `correct` verdict from PM-31; approval is one transaction (quarantine, version 2, links, approval) |
-| End-to-end before/after demo | Verified via `demo_rehearsal.py`: rerun retrieves v2 and rolls back; Globex search and refused read work |
-| Dashboard | Wired to the live API; the full demo path (run, contest, replay, verdict, approve, rerun, Globex isolation) was clicked through in a browser |
+| Full HTTP and public-browser demo | Passed: unsafe decision, replay, verified correction, named approval, rollback rerun, and tenant isolation |
+| Recorded influence | Stable baseline 3/3; removing stale INC-212 flips 3/3; other memories 0/3 |
+| Before/after | Simulated fraud 7.1% after disabling checks, 0.4% after corrected rollback |
+| Evidence eligibility | Requires the same tenant/service, a newer date, and a nonblank verifier, including fallback queries |
+| Approval | One Atlas transaction; live failure-injection checks verify full rollback and successful commit |
+| Reliability | 32 offline tests pass; failed/unstable/inconclusive replay states have explicit UI messaging and retry |
+| Frontend | Real API wiring; full browser walkthrough, production build, and lint pass |
+| Demo video | Exactly 60 seconds; real browser captures and source excerpts with generated narration; audio/video playback verified |
 
-The offline tests do **not** demonstrate successful Atlas retrieval, real LLM behavior, or a complete live demo. See the [alignment review](docs/HACKATHON_ALIGNMENT.md) for remaining gaps and the submission checklist.
+The [validation report](docs/VALIDATION.md) distinguishes live tests from mocked failure cases and records the remaining limits. The public tunnel is temporary and requires the local server to stay running. [Deployment files](docs/DEPLOYMENT.md) are prepared for permanent hosting; the Docker build has not been run because the local Docker engine is unavailable.
 
-For a Voyage account limited to 3 requests/minute, let prior requests age out and run the live check with `--interval 21`. The check requires nonempty results and verifies tenant, active status, expiry, direct-read refusal, and refusal logging. Existing Atlas demo data should be reused rather than reset during these checks.
+The embedding cache stores only query vectors; tenant-specific memories and retrieval results are never cached. Repeating the incident for rerun and tenant checks reuses its vector while each search still applies fresh Atlas eligibility filters. For other low-tier Voyage checks, `scripts/isolation_check.py --interval 21` spaces embedding requests.
 
 ## Development tools
 
 `.mcp.json` configures the local MongoDB MCP server using `tools/mongodb-mcp.sh`. It reads the root `.env` and defaults to read-only. The application uses PyMongo directly. MongoDB's Agent Skills and query-prompting guidance from the resource guide are useful development aids; they are not application runtime dependencies.
 
-For a fresh real-model decision and replay, run `scripts/flip_test.py`, then `scripts/demo_check.py --execute` from `backend/`. The latter checks LLM availability before any retrieval/write and never resets existing demo data. It uses current active memories, so it does not force the original bad action or an influential-memory result. Direct OpenAI remains blocked by exhausted API credits; the local configuration now uses OpenRouter Nemotron 3.5 Super VL, whose real flip gate and live decision/replay checks passed. See [team tasks](docs/TASKS.md) for the latest test results.
+For a fresh real-model decision and replay, run `scripts/flip_test.py`, then `scripts/demo_check.py --execute` from `backend/`. These checks do not reset the demo. For the full reset/approval/rerun path, use `scripts/demo_rehearsal.py` or the optional browser checker in [VALIDATION.md](docs/VALIDATION.md).
 
-Validated alternative provider: `LLM_PROVIDER=openai`, `LLM_BASE_URL=https://openrouter.ai/api/v1`, `LLM_MODEL=nvidia/nemotron-3.5-super-vl:free`, and an OpenRouter key in the ignored `.env`. The flip gate passed 5/5 both ways; fresh decision/replay and forced correction-draft calls passed. Full Super VL approval/rerun rehearsal is still separate. See [validation results](docs/TASKS.md#nemotron-35-super-vl-validation).
+Validated local provider settings (keep the actual key only in the ignored `.env`):
+
+```dotenv
+LLM_PROVIDER=openai
+LLM_BASE_URL=https://openrouter.ai/api/v1
+LLM_MODEL=nvidia/nemotron-3.5-super-vl:free
+LLM_API_KEY=your_openrouter_key
+```
+
+The [submission description](docs/submission/DESCRIPTION.md), [measured run](docs/submission/validated-run.json), and one-minute video are prepared. Final team details, event Sandbox confirmation, and competition submission are deferred at the user's request. GitHub About changes require the repository owner's account; [exact metadata and command](docs/DEPLOYMENT.md#github-about-owner-only-step) are provided.

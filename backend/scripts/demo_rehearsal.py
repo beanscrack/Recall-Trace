@@ -69,6 +69,8 @@ if code != 200:
     sys.exit(1)
 code, a, _ = call("POST", f"/api/verdicts/{v['_id']}/approve", "reviewer-dana")
 check("approve as reviewer-dana", code == 200 and a["approved_by"] == "reviewer-dana" and a["new_memory_id"])
+if code != 200:
+    sys.exit(1)
 
 mems = {m["_id"]: m for m in call("GET", "/api/memories", "sre-oncall")[1] or []}
 old, new = mems.get(stale["memory_id"]), mems.get(a and a.get("new_memory_id"))
@@ -82,6 +84,8 @@ check("rerun rolls back", code == 200 and d2["action"] == "rollback_deployment",
       f"{d2 and d2['action']} fraud={d2 and d2['sim_after']['fraud_rate']} {dt:.1f}s")
 check("rerun did not retrieve the quarantined memory",
       d2 and not any(m["memory_id"] == stale["memory_id"] for m in d2["retrieved"]))
+check("rerun retrieved the approved corrected version",
+      d2 and any(m["memory_id"] == a["new_memory_id"] for m in d2["retrieved"]))
 
 code, res, _ = call("GET", f"/api/search?q={urllib.parse.quote(TASK)}", "platform-lee")
 check("globex search returns only globex", code == 200 and res and all(r["tenant_id"] == "globex" for r in res),

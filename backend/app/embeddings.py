@@ -20,5 +20,12 @@ def embed(texts: list[str], input_type: str = "document") -> list[list[float]]:
     return res.embeddings
 
 
+@lru_cache(maxsize=128)
+def _query_vector(text: str) -> tuple[float, ...]:
+    return tuple(embed([text], input_type="query")[0])
+
+
 def embed_query(text: str) -> list[float]:
-    return embed([text], input_type="query")[0]
+    # Reuse only vectors, never tenant-specific results. Return a fresh list so
+    # callers cannot mutate the cached vector. Config is fixed for this process.
+    return list(_query_vector(text))

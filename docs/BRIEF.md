@@ -109,6 +109,7 @@ This is the contract between the three workstreams. Agree on it before writing c
 {
   "_id": "ObjectId",
   "tenant_id": "acme-pay",
+  "service": "checkout",
   "text": "INC-212: checkout 5xx spike with fraud-check p99 over 4s ...",
   "embedding": [0.01, "... 1024 floats"],
   "status": "active",
@@ -123,6 +124,7 @@ This is the contract between the three workstreams. Agree on it before writing c
 }
 ```
 
+- `service` explicitly identifies the incident domain; seeds and corrected versions preserve it. Corrective evidence must have the same tenant and service, a newer date, and a nonblank verifier. Untagged legacy memories receive no automatic corrective evidence.
 - `status` is `active` or `quarantined`.
 - `expires_at` is always a date. Use a far-future date for memories that do not expire, so the retrieval filter is a plain range comparison.
 - Corrections never edit `text` in place. They insert a new document with `version + 1` and `supersedes` set, then mark the old one `quarantined` with `superseded_by` set.
@@ -135,6 +137,7 @@ Verified records the court checks against. The agent's retrieval never reads thi
 {
   "_id": "ObjectId",
   "tenant_id": "acme-pay",
+  "service": "checkout",
   "title": "Postmortem PM-31",
   "text": "Disabling fraud checks during INC-212-style incidents caused ...",
   "embedding": ["... 1024 floats"],
@@ -316,7 +319,7 @@ The replay never touches the simulation.
 `propose_verdict(decision_id)`:
 
 1. Take the culprit memory from the replay.
-2. Find candidate evidence: same tenant, `created_at` newer than the memory, closest by vector search (or by tag if there is no evidence index). The rule "verified, newer, and about the same thing" is a lookup, not a model judgment.
+2. Find candidate evidence: same tenant and explicit `service`, `created_at` newer than the memory, and a nonblank `verified_by`, closest by vector search. If the index is absent/building, use a normal query with the same eligibility predicates; untagged memories have no corrective evidence. The rule "verified, newer, and about the same thing" is a lookup, not a model judgment.
 3. If no evidence is found, propose `quarantine` with the replay result as the reason.
 4. If evidence is found, make one LLM call that receives the memory text and the evidence text and returns structured output: `contradicts` (boolean), `reason`, `corrected_text`. If `contradicts` is false, propose `no_action`.
 5. Store the verdict as `proposed`.

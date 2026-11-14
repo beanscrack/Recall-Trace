@@ -5,6 +5,7 @@ The model only drafts. Nothing changes in memories until a human approves.
 from datetime import datetime, timezone
 
 from bson import ObjectId
+from pymongo.errors import OperationFailure
 
 from . import db
 from .db import EVIDENCE_INDEX
@@ -20,13 +21,24 @@ def _now():
 def find_evidence(memory: dict) -> dict | None:
     """Verified, newer, and about the same thing: a lookup, not a model judgment.
 
-    Same tenant + created_at newer than the memory, closest by vector search on the memory's own
-    embedding. Falls back to the newest newer same-tenant evidence if the
-    evidence index doesn't exist or returns nothing (e.g. still building).
+    Require explicit service metadata, the same tenant/service, a newer date,
+    and a nonblank verifier. If the vector index is unavailable, use exactly
+    those eligibility rules in the normal-query fallback. Untagged legacy
+    memories cannot be matched safely and receive no corrective evidence.
     """
-    newer = {"tenant_id": memory["tenant_id"], "created_at": {"$gt": memory["created_at"]},
-             "verified_by": {"$type": "string", "$nin": [""]}}  # unverified records are not evidence
-    has_index = any(i["name"] == EVIDENCE_INDEX for i in db.evidence().list_search_indexes())
+    service = memory.get("service")
+    if not isinstance(service, str) or not service.strip():
+        return None
+    newer = {"tenant_id": memory["tenant_id"], "service": service,
+             "created_at": {"$gt": memory["created_at"]},
+             "verified_by": {"$type": "string", "$regex": r"\S"}}
+    try:
+        has_index = any(i["name"] == EVIDENCE_INDEX and i.get("queryable", False)
+                        for i in db.evidence().list_search_indexes())
+    except OperationFailure as exc:
+        if exc.code not in (26, 27):  # absent namespace/index, not an authentication or server failure
+            raise
+        has_index = False
     if has_index and memory.get("embedding"):
         pipeline = [
             {"$vectorSearch": {
@@ -35,11 +47,16 @@ def find_evidence(memory: dict) -> dict | None:
                 "filter": {"tenant_id": {"$eq": memory["tenant_id"]}},
             }},
             {"$set": {"score": {"$meta": "vectorSearchScore"}}},
-            {"$match": {k: newer[k] for k in ("created_at", "verified_by")}},  # not index filter fields
+            {"$match": newer},  # service/date/verifier need not be vector-index filter fields
             {"$limit": 1},
             {"$unset": "embedding"},
         ]
-        hit = next(db.evidence().aggregate(pipeline), None)
+        try:
+            hit = next(db.evidence().aggregate(pipeline), None)
+        except OperationFailure as exc:
+            if exc.code not in (26, 27):
+                raise
+            hit = None
         if hit:
             return hit
     return db.evidence().find_one(newer, {"embedding": 0}, sort=[("created_at", -1)])
@@ -107,6 +124,7 @@ def approve_verdict(verdict_id: str, approved_by: str) -> dict:
         if v["outcome"] == "correct":  # embed before any write so a Voyage failure changes nothing
             new = {
                 "tenant_id": old["tenant_id"], "text": v["proposed_text"],
+                "service": old.get("service"),
                 "embedding": embed([v["proposed_text"]])[0], "status": "active",
                 "version": old["version"] + 1, "supersedes": old["_id"], "superseded_by": None,
                 "source": "court_correction", "source_evidence_id": v["evidence_id"],

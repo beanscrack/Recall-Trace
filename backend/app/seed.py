@@ -55,14 +55,16 @@ EVIDENCE = [
 
 def reset() -> dict:
     """Clears documents (delete_many, not drop: dropping would also drop the search indexes)."""
+    # Generate before deleting: a Voyage outage must not erase the current demo.
+    vecs = embed([m[2] for m in MEMORIES] + [e[2] for e in EVIDENCE])
     db.ensure_collections()
     d = db.get_db()
     for name in db.COLLECTIONS:
         d[name].delete_many({})
 
-    vecs = embed([m[2] for m in MEMORIES] + [e[2] for e in EVIDENCE])
     mem_docs = [{
         "tenant_id": tenant, "text": text, "embedding": vecs[i], "status": "active", "version": 1,
+        "service": {"leak": "cart", "tls": "payment-gateway"}.get(key, "checkout"),
         "supersedes": None, "superseded_by": None, "source": source, "source_evidence_id": None,
         "created_by": "agent:incident-responder" if source == "agent_learned" else "human:seed",
         "created_at": created, "expires_at": expires, "seed_key": key,

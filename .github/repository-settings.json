@@ -1,0 +1,5 @@
+{
+  "repository": "beanscrack/Recall-Trace",
+  "description": "Agent memory governance with MongoDB Atlas, Vector Search, and counterfactual replay.",
+  "topics": ["mongodb", "mongodb-atlas", "vector-search", "agent-memory", "ai-agents", "counterfactual-replay", "fastapi", "react", "hackathon"]
+}

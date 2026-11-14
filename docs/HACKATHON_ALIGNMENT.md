@@ -79,3 +79,7 @@ Existing Atlas records show `disable_fraud_checks`, an approved correction, and 
 All 20 offline backend checks passed. Current task ownership and remaining work are tracked in [TASKS.md](TASKS.md).
 
 A subsequent `demo_check.py` run passed live Atlas/Voyage API checks, session and tenant guards, refusal logging, and stored decision/replay/verdict serialization using in-process HTTP. All 22 offline checks passed, including failure regression tests confirming no simulated action or decision write after retrieval/LLM failure. The `--execute` path reports the billing blockage before touching demo data; fresh OpenAI replay remains unverified.
+
+## Final implementation follow-up
+
+The complete Super VL HTTP and public-browser rehearsals now pass, including real approval and rerun. Same-service/newer/verified evidence eligibility and safe fallback are implemented. Live Atlas fault injection verified transaction rollback and atomic commit. The UI distinguishes replay failures from flips and provides retry controls; 32 offline tests and three separately mocked browser states pass. A 60-second narrated video and temporary public app are accessible and verified. Deployment files are prepared; Docker engine validation, owner-only About settings, and user-deferred final submission details remain distinct limits. See [VALIDATION.md](VALIDATION.md) and [DEPLOYMENT.md](DEPLOYMENT.md).

@@ -1,10 +1,12 @@
 """FastAPI routes. Session user comes from the X-User header; tenant is mapped server-side."""
 from datetime import datetime, timezone
+from pathlib import Path
 
 from bson import ObjectId
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from . import agent, config, court, db, replay, seed, sim
@@ -143,3 +145,10 @@ def reset_sim():
 @app.post("/api/demo/reset")
 def demo_reset():
     return seed.reset()
+
+
+# Production serves the built dashboard and API from one origin. Vite remains
+# the development server when the frontend has not been built.
+frontend_dist = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+if (frontend_dist / "index.html").is_file():
+    app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="dashboard")

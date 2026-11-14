@@ -1,0 +1,53 @@
+{
+  "date": "2026-11-14",
+  "model": "nvidia/nemotron-3.5-super-vl:free",
+  "decision_id": "6af8a9542ba899a0da89ad06",
+  "replay_id": "6af8a95e2ba899a0da89ad07",
+  "verdict_id": "6af8a9672ba899a0da89ad08",
+  "rerun_id": "6af8a9712ba899a0da89ad0b",
+  "before_action": "disable_fraud_checks",
+  "after_action": "rollback_deployment",
+  "before_fraud_rate": 0.071,
+  "after_fraud_rate": 0.004,
+  "baseline_stability": 1.0,
+  "ablations": [
+    {
+      "removed_memory_id": "6af8a94b2ba899a0da89acfb",
+      "actions": [
+        "rollback_deployment",
+        "rollback_deployment",
+        "rollback_deployment"
+      ],
+      "flip_rate": 1.0
+    },
+    {
+      "removed_memory_id": "6af8a94b2ba899a0da89acfd",
+      "actions": [
+        "disable_fraud_checks",
+        "disable_fraud_checks",
+        "disable_fraud_checks"
+      ],
+      "flip_rate": 0.0
+    },
+    {
+      "removed_memory_id": "6af8a94b2ba899a0da89acfc",
+      "actions": [
+        "disable_fraud_checks",
+        "disable_fraud_checks",
+        "disable_fraud_checks"
+      ],
+      "flip_rate": 0.0
+    },
+    {
+      "removed_memory_id": "6af8a94b2ba899a0da89acff",
+      "actions": [
+        "disable_fraud_checks",
+        "disable_fraud_checks",
+        "disable_fraud_checks"
+      ],
+      "flip_rate": 0.0
+    }
+  ],
+  "approved_by": "reviewer-dana",
+  "browser_errors": []
+}
