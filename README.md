@@ -6,7 +6,7 @@
 
 Agent memory governance with MongoDB Atlas, Vector Search, and counterfactual replay.
 
-[Architecture & build brief](docs/BRIEF.md) · [Hackathon alignment](docs/HACKATHON_ALIGNMENT.md) · [Contributing](CONTRIBUTING.md)
+[Architecture & build brief](docs/BRIEF.md) · [Team tasks](docs/TASKS.md) · [Hackathon alignment](docs/HACKATHON_ALIGNMENT.md) · [Contributing](CONTRIBUTING.md)
 
 </div>
 
@@ -74,6 +74,8 @@ backend/.venv/bin/python -m pip install -r backend/requirements.txt
 
 Fill in `.env`: `MONGODB_URI`, `VOYAGE_API_KEY`, `LLM_PROVIDER`, `LLM_MODEL`, and `LLM_API_KEY`. For an OpenAI-compatible endpoint, also set `LLM_BASE_URL`. Never commit credentials. The internal database namespace remains `memory_court` to preserve teammates' existing Atlas data and indexes; the product is named RecallTrace.
 
+If your environment cannot resolve Atlas SRV records while public DNS can, set `MONGODB_DNS_NAMESERVERS=1.1.1.1,1.0.0.1` in `.env`. This optional override configures dnspython inside the backend process; it does not change system DNS. Leave it blank to use system defaults. See the [dnspython resolver documentation](https://dnspython.readthedocs.io/en/stable/resolver-class.html).
+
 ```bash
 cd backend
 source .venv/bin/activate
@@ -98,8 +100,11 @@ The dashboard runs at `http://localhost:5173`, with `/api` proxied to port 8000.
 cd backend
 .venv/bin/python scripts/replay_test.py       # offline mocked LLM and collection tests
 .venv/bin/python scripts/atlas_setup_test.py  # offline index-readiness checks
+.venv/bin/python scripts/db_dns_test.py       # offline opt-in DNS checks
+.venv/bin/python scripts/agent_failure_test.py # offline failed-agent behavior
 .venv/bin/python scripts/isolation_check.py  # LIVE Atlas + Voyage check
-.venv/bin/python scripts/demo_check.py       # LIVE full demo rehearsal against a running server (resets data)
+.venv/bin/python scripts/demo_check.py       # LIVE API checks using existing data
+.venv/bin/python scripts/demo_rehearsal.py   # LIVE full demo rehearsal against a running server (RESETS data)
 ```
 
 Verified live on 2026-11-14 against Atlas with `claude-haiku-5-5` and `voyage-4`:
@@ -107,14 +112,18 @@ Verified live on 2026-11-14 against Atlas with `claude-haiku-5-5` and `voyage-4`
 | Area | Current state |
 | --- | --- |
 | Gate 0 flip test | Passes 5/5 both ways on `claude-haiku-5-5`. Opus 5.5 / Sonnet 5.5 reject forced `tool_choice`; Opus 5 never follows the stale runbook |
-| Atlas retrieval and embeddings | Verified: stale INC-212 ranks first, expired freeze memory never returned; `isolation_check.py` passes |
+| Atlas retrieval and embeddings | Verified: stale INC-212 ranks first, expired freeze memory never returned; `isolation_check.py` passes; live Atlas ping and six tenant/status/expiry retrieval checks passed |
 | Snapshot replay | Verified: baseline 3/3, removing INC-212 flips 100%, other memories 0%; also covered by offline tests |
 | Evidence review and approval | Verified: `correct` verdict from PM-31; approval is one transaction (quarantine, version 2, links, approval) |
-| End-to-end before/after demo | Verified via `demo_check.py`: rerun retrieves v2 and rolls back; Globex search and refused read work |
+| End-to-end before/after demo | Verified via `demo_rehearsal.py`: rerun retrieves v2 and rolls back; Globex search and refused read work |
 | Dashboard | Wired to the live API; the full demo path (run, contest, replay, verdict, approve, rerun, Globex isolation) was clicked through in a browser |
 
 The offline tests do **not** demonstrate successful Atlas retrieval, real LLM behavior, or a complete live demo. See the [alignment review](docs/HACKATHON_ALIGNMENT.md) for remaining gaps and the submission checklist.
 
+For a Voyage account limited to 3 requests/minute, let prior requests age out and run the live check with `--interval 21`. The check requires nonempty results and verifies tenant, active status, expiry, direct-read refusal, and refusal logging. Existing Atlas demo data should be reused rather than reset during these checks.
+
 ## Development tools
 
 `.mcp.json` configures the local MongoDB MCP server using `tools/mongodb-mcp.sh`. It reads the root `.env` and defaults to read-only. The application uses PyMongo directly. MongoDB's Agent Skills and query-prompting guidance from the resource guide are useful development aids; they are not application runtime dependencies.
+
+For a fresh real-model decision and replay, run `scripts/flip_test.py`, then `scripts/demo_check.py --execute` from `backend/`. The latter checks LLM availability before any retrieval/write and never resets existing demo data. It uses current active memories, so it does not force the original bad action or an influential-memory result. The current OpenAI key is configured locally, but live execution is blocked by exhausted API credits. See [team tasks](docs/TASKS.md) for the latest test results.
