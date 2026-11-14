@@ -5,6 +5,7 @@ Only touches the MONGODB_DB database.
 import time
 from functools import lru_cache
 
+import dns.resolver
 from pymongo import MongoClient
 from pymongo.database import Database
 from pymongo.operations import SearchIndexModel
@@ -20,6 +21,8 @@ EVIDENCE_INDEX = "evidence_vector_index"
 def get_db() -> Database:
     if not config.MONGODB_URI:
         raise RuntimeError("MONGODB_URI is not set (see .env.example)")
+    if config.MONGODB_DNS_NAMESERVERS:
+        dns.resolver.get_default_resolver().nameservers = config.MONGODB_DNS_NAMESERVERS
     return MongoClient(config.MONGODB_URI, appname="recalltrace")[config.MONGODB_DB]
 
 

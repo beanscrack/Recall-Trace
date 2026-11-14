@@ -1,6 +1,6 @@
 # Hackathon resource guide alignment
 
-Reviewed against the supplied **Agents in Context Toronto: A MongoDB Hackathon Resource Guide**, November 14, 2026, pages 2–7. This is an implementation review, not evidence that live services have passed. No Atlas, Voyage, or LLM credentials were available in the review environment.
+Reviewed against the supplied **Agents in Context Toronto: A MongoDB Hackathon Resource Guide**, November 14, 2026, pages 2–7. This is an implementation review, not evidence that live services have passed. The initial review had no service credentials; see the follow-up validation below for subsequent live Atlas and Voyage results.
 
 ## Required track capabilities
 
@@ -60,10 +60,20 @@ The simulator is process-local, with state snapshots stored in Atlas decisions. 
 
 ## Repository identity
 
-Product: **RecallTrace**. Intended repository slug: `recalltrace`.
+Product: **RecallTrace**. Repository: [beanscrack/Recall-Trace](https://github.com/beanscrack/Recall-Trace). The owner renamed it during the live validation work.
 
 Suggested GitHub description: "Agent memory governance with MongoDB Atlas, Vector Search, and counterfactual replay."
 
 Suggested topics: `mongodb`, `mongodb-atlas`, `vector-search`, `agent-memory`, `ai-agents`, `counterfactual-replay`, `fastapi`, `react`, `hackathon`.
 
 Renaming the GitHub repository or editing its About settings requires an owner/admin account. Keep the internal database namespace `memory_court` for existing deployments; a product rename does not require migrating or reseeding team data.
+
+## Follow-up live validation
+
+Atlas and Voyage are now configured in the local ignored `.env`. The backend supports an optional process-local DNS override because system DNS omitted valid Atlas SRV records. A fresh application connection passed, both vector indexes report READY/queryable with 1024 dimensions, and live Voyage document/query embeddings returned 1024 dimensions.
+
+The strengthened isolation script passed all six live nonempty searches with tenant, active-status, and expiry assertions, plus both refused cross-tenant direct reads and their access logs. Voyage returned a 3-RPM limit during the first attempt; rerunning with `--interval 21` passed. No demo data was reset or reseeded.
+
+Existing Atlas records show `disable_fraud_checks`, an approved correction, and a `rollback_deployment` rerun. Correction status, version links, reviewer metadata, and replacement embedding dimensions passed inspection. These stored records do not establish that a fresh run using the current local configuration passes. The local provider is set to OpenAI-compatible, but the model/key (and base URL if custom) are still required.
+
+All 20 offline backend checks passed. Current task ownership and remaining work are tracked in [TASKS.md](TASKS.md).

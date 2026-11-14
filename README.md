@@ -6,7 +6,7 @@
 
 Agent memory governance with MongoDB Atlas, Vector Search, and counterfactual replay.
 
-[Architecture & build brief](docs/BRIEF.md) · [Hackathon alignment](docs/HACKATHON_ALIGNMENT.md) · [Contributing](CONTRIBUTING.md)
+[Architecture & build brief](docs/BRIEF.md) · [Team tasks](docs/TASKS.md) · [Hackathon alignment](docs/HACKATHON_ALIGNMENT.md) · [Contributing](CONTRIBUTING.md)
 
 </div>
 
@@ -74,6 +74,8 @@ backend/.venv/bin/python -m pip install -r backend/requirements.txt
 
 Fill in `.env`: `MONGODB_URI`, `VOYAGE_API_KEY`, `LLM_PROVIDER`, `LLM_MODEL`, and `LLM_API_KEY`. For an OpenAI-compatible endpoint, also set `LLM_BASE_URL`. Never commit credentials. The internal database namespace remains `memory_court` to preserve teammates' existing Atlas data and indexes; the product is named RecallTrace.
 
+If your environment cannot resolve Atlas SRV records while public DNS can, set `MONGODB_DNS_NAMESERVERS=1.1.1.1,1.0.0.1` in `.env`. This optional override configures dnspython inside the backend process; it does not change system DNS. Leave it blank to use system defaults. See the [dnspython resolver documentation](https://dnspython.readthedocs.io/en/stable/resolver-class.html).
+
 ```bash
 cd backend
 source .venv/bin/activate
@@ -98,18 +100,21 @@ The dashboard runs at `http://localhost:5173`, with `/api` proxied to port 8000.
 cd backend
 .venv/bin/python scripts/replay_test.py       # offline mocked LLM and collection tests
 .venv/bin/python scripts/atlas_setup_test.py  # offline index-readiness checks
+.venv/bin/python scripts/db_dns_test.py       # offline opt-in DNS checks
 .venv/bin/python scripts/isolation_check.py  # LIVE Atlas + Voyage check
 ```
 
 | Area | Current state |
 | --- | --- |
 | Snapshot replay | Implemented; offline tests cover thresholds, failures, ties, concurrency, and the HTTP route |
-| Atlas retrieval and embeddings | Implemented; requires live sandbox validation |
-| Evidence review and approval | Implemented by the team; requires live validation |
+| Atlas retrieval and embeddings | Live Atlas ping, real Voyage embeddings, and six tenant/status/expiry retrieval checks passed |
+| Evidence review and approval | Existing approved correction links and metadata verified in Atlas; fresh approval/failure checks remain |
 | Dashboard | Mock-data prototype; API wiring and interactive demo controls remain |
 | End-to-end before/after demo | Requires credentials, prompt gate, and a complete rehearsal |
 
 The offline tests do **not** demonstrate successful Atlas retrieval, real LLM behavior, or a complete live demo. See the [alignment review](docs/HACKATHON_ALIGNMENT.md) for remaining gaps and the submission checklist.
+
+For a Voyage account limited to 3 requests/minute, let prior requests age out and run the live check with `--interval 21`. The check requires nonempty results and verifies tenant, active status, expiry, direct-read refusal, and refusal logging. Existing Atlas demo data should be reused rather than reset during these checks.
 
 ## Development tools
 
