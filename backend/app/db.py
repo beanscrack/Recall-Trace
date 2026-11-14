@@ -20,7 +20,7 @@ EVIDENCE_INDEX = "evidence_vector_index"
 def get_db() -> Database:
     if not config.MONGODB_URI:
         raise RuntimeError("MONGODB_URI is not set (see .env.example)")
-    return MongoClient(config.MONGODB_URI, appname="memory-court")[config.MONGODB_DB]
+    return MongoClient(config.MONGODB_URI, appname="recalltrace")[config.MONGODB_DB]
 
 
 def memories():

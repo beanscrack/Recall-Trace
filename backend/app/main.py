@@ -11,7 +11,7 @@ from . import agent, config, court, db, replay, seed, sim
 from .errors import Conflict
 from .retrieval import get_memory
 
-app = FastAPI(title="Memory Court")
+app = FastAPI(title="RecallTrace")
 ENC = {ObjectId: str}
 
 

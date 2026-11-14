@@ -1,4 +1,4 @@
-"""Memory Court: verdict proposal and human approval. See brief section 8.
+"""RecallTrace: verdict proposal and human approval. See brief section 8.
 
 The model only drafts. Nothing changes in memories until a human approves.
 """

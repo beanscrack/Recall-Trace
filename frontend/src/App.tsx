@@ -19,7 +19,10 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
       <header className="flex items-center justify-between border-b border-slate-800 px-8 py-4">
-        <h1 className="text-2xl font-bold">Memory Court</h1>
+        <div>
+          <h1 className="text-2xl font-bold">RecallTrace</h1>
+          <p className="text-xs text-slate-400">Agent memory governance · sample data preview</p>
+        </div>
         <div className="flex gap-3">
           <select className="rounded bg-slate-800 px-3 py-2" value={user} onChange={(e) => setUser(e.target.value as User)}>
             {USERS.map((u) => <option key={u}>{u}</option>)}
@@ -50,7 +53,7 @@ export default function App() {
             </div>
           ))}
         </Panel>
-        <Panel title="Verdict (Memory Court)"><p>{d.verdict.reason}</p></Panel>
+        <Panel title="Verdict · evidence review"><p>{d.verdict.reason}</p></Panel>
         <Panel title="Rerun">TODO: before / after</Panel>
         {user === 'platform-lee' && <Panel title="Isolation">TODO: search results + refused read</Panel>}
       </main>

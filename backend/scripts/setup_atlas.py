@@ -16,7 +16,9 @@ print("collections + validator: ok")
 print("indexes:", db.ensure_indexes())
 if "--wait" in sys.argv or "--seed" in sys.argv:
     print("waiting for memory_vector_index to be queryable ...")
-    print("queryable:", db.wait_queryable())
+    if not db.wait_queryable():
+        raise SystemExit("memory_vector_index is not queryable; no demo data was replaced. Retry after the index is ready.")
+    print("queryable: True")
 if "--seed" in sys.argv:
     print("seeded:", seed.reset())
 print("status:", db.index_status())

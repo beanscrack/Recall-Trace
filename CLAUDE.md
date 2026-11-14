@@ -1,4 +1,4 @@
-# Memory Court
+# RecallTrace
 
 Hackathon project; spec is docs/BRIEF.md (read sections 2, 6, 8 before changing behaviour).
 - Three people commit here: small commits, don't reformat files you weren't asked to change.

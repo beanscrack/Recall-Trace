@@ -1,4 +1,4 @@
-# Memory Court + Black Box: build brief
+# RecallTrace: build brief
 
 This brief is for a Claude Code session that will create the repo and build the project with a team of three. Read it fully before scaffolding. Where it gives a default, use it unless a teammate says otherwise. Where it marks something as an open decision, ask before guessing.
 
@@ -8,7 +8,7 @@ This brief is for a Claude Code session that will create the repo and build the 
 - **Constraints:** 5 hours of build time, 3 people, data lives in the hackathon's Atlas sandbox.
 - **Judging:** a 3-minute live demo plus 1 to 2 minutes of questions. Technical demo 35%, implementation difficulty 30%, impact 20%, creativity 15%. The demo working live matters more than anything else in this document.
 
-**One-line pitch:** Memory Court finds the specific memory that caused an agent's bad decision, corrects it against verified evidence with human sign-off, and proves the fix by rerunning the same task.
+**One-line pitch:** RecallTrace traces evidence of memory influence on an agent's decision, proposes a correction against verified evidence with human sign-off, and measures behavior on the next run.
 
 **The three track questions, and our answers:**
 
@@ -24,7 +24,7 @@ This is the definition of done. Build toward this path and nothing else until it
 
 1. An incident-response agent for tenant `acme-pay` gets a checkout incident. It retrieves memories from Atlas, including a stale one, and calls `disable_fraud_checks` on a simulated checkout system. The simulation's fraud rate goes red.
 2. A reviewer clicks **Contest decision**. Black Box replays the recorded step with each retrieved memory removed and shows a flip rate per memory. The stale memory is the clear culprit.
-3. Memory Court looks up newer verified evidence for the same tenant, proposes quarantining the stale memory and replacing it with a corrected version, and shows the reason.
+3. RecallTrace looks up newer verified evidence for the same tenant, proposes quarantining the stale memory and replacing it with a corrected version, and shows the reason.
 4. The reviewer clicks **Approve**. The old memory is quarantined, the new version is stored with a link to the old one and to the evidence, and the approval is recorded with the reviewer's name.
 5. The simulation is reset and the same task is run again through real retrieval. The agent now calls `rollback_deployment`. The dashboard shows before and after side by side.
 6. Switch the session to tenant `globex`. Run a query that would match Acme's memories. Nothing from Acme comes back, and a direct request for an Acme memory ID is refused and logged.
@@ -75,7 +75,7 @@ The MongoDB MCP server (`npx mongodb-mcp-server@latest setup`, connection string
 ## 5. Repo layout
 
 ```
-memory-court/
+recalltrace/
   README.md
   .env.example
   .gitignore
@@ -303,13 +303,15 @@ Input: a decision ID. Everything comes from the stored `decisions` document. Do 
 
 1. **Baseline:** call `decide` N times (N = 3) with all recorded memories. `stability` is the share of runs that match the original action. If stability is below 2/3, report that the decision is unstable and stop, because flip rates would be meaningless.
 2. **Ablations:** for each recorded memory, call `decide` N times with that memory removed. `flip_rate` is the share of runs whose action differs from the original.
-3. **Culprit:** the memory with the highest flip rate, if that rate is at least 2/3. Otherwise no culprit.
+3. **Candidate influential memory:** the unique memory with the highest flip rate, if that rate is at least 2/3. A tie or a failed LLM request leaves `culprit_memory_id` unset. Replay measures evidence of influence, not proof of causation.
 4. Run the calls concurrently. With 4 memories and N = 3 this is 15 calls and should finish in a few seconds.
 5. Store the `replays` document and return it.
 
+Results retain `stable` and `original_action` for teammate compatibility and add `tenant_id`, `status`, and per-variant `errors`. Status is `influence_detected`, `no_clear_influence`, `unstable_baseline`, or `incomplete`. Failed trials occupy `null` action slots and do not count as flips; rates use all scheduled runs as the denominator. A baseline failure stops ablations. Incomplete comparisons never nominate a memory.
+
 The replay never touches the simulation.
 
-### Memory Court (`court.py`)
+### Evidence review (`court.py`)
 
 `propose_verdict(decision_id)`:
 
@@ -411,7 +413,7 @@ One page, top to bottom, matching the order of the demo:
 2. **Incident:** the task text, simulation gauges for error rate and fraud rate, **Run agent** button.
 3. **Decision:** the action chosen, the model's rationale, the retrieved memories with scores. **Contest decision** button.
 4. **Investigation (Black Box):** one row per retrieved memory showing the actions when it was removed and the flip rate. Baseline row on top. Culprit highlighted.
-5. **Verdict (Memory Court):** stale memory text beside proposed text, the evidence title and excerpt, the reason, **Approve** button, and after approval, who approved and when.
+5. **Verdict (RecallTrace):** stale memory text beside proposed text, the evidence title and excerpt, the reason, **Approve** button, and after approval, who approved and when.
 6. **Rerun:** before and after cards side by side: action, memories used, simulation outcome.
 7. **Isolation:** visible when signed in as Globex: the search result list and the refused read from the access log.
 
@@ -422,7 +424,7 @@ Build against static JSON shaped like section 6 until the backend routes exist. 
 | Time | What happens | What to say |
 |---|---|---|
 | 0:00 | Dashboard open on the incident | One line: agents act on memories, and a wrong memory repeats the same mistake forever. |
-| 0:20 | Run agent. It disables fraud checks. Fraud rate goes red. | The agent followed something it remembered. Which memory, and can we prove it? |
+| 0:20 | Run agent. It disables fraud checks. Fraud rate goes red. | The agent followed something it remembered. Which memory influenced that choice? |
 | 0:50 | Contest, run Black Box. Flip-rate table fills in. | We replay the exact step with each memory removed. Remove this one and the decision changes every time. |
 | 1:30 | Verdict appears. Approve. | The court checks newer verified evidence, proposes a correction, and a named human approves. The old version is kept and linked. |
 | 2:05 | Reset simulation, rerun. Agent rolls back. Before and after shown. | Same task, same retrieval path, different memory, safe action. |
