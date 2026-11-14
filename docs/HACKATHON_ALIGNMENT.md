@@ -46,8 +46,8 @@ The simulator is process-local, with state snapshots stored in Atlas decisions. 
 3. Wire the dashboard to the existing API; its present controls and metrics use mock data.
 4. Run one incident through retrieval, decision, replay, review, human approval, and fresh retrieval. Record actual actions and simulator snapshots.
 5. Verify tenant isolation, expiry, quarantine, version links, and access logs against Atlas.
-6. Review evidence lookup with the teammate: current fallback chooses the newest same-tenant evidence without checking service, and lookup does not explicitly require a nonempty `verified_by`. The seeded dataset has one verified checkout evidence record, but broader data needs stronger filtering.
-7. Approval writes span multiple documents without a transaction. An insertion failure after quarantine can leave a partial correction; test the demo path and avoid claiming atomic approval.
+6. ~~Evidence lookup~~ Resolved: evidence must be same-tenant, newer than the memory, and have a non-empty `verified_by` (vector path and fallback). Service-tag matching is still unneeded for the one-evidence seed set.
+7. ~~Non-atomic approval~~ Resolved: approval runs in one Atlas transaction (quarantine, insert version+1, link, mark approved); verified live.
 8. Session identities are a demo picker, not authentication. Reset endpoints are demo utilities. Do not expose a shared write-enabled demo as a secure multi-user service.
 
 ## Submission checklist from page 3

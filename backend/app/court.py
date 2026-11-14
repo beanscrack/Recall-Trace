@@ -24,7 +24,8 @@ def find_evidence(memory: dict) -> dict | None:
     embedding. Falls back to the newest newer same-tenant evidence if the
     evidence index doesn't exist or returns nothing (e.g. still building).
     """
-    newer = {"tenant_id": memory["tenant_id"], "created_at": {"$gt": memory["created_at"]}}
+    newer = {"tenant_id": memory["tenant_id"], "created_at": {"$gt": memory["created_at"]},
+             "verified_by": {"$type": "string", "$nin": [""]}}  # unverified records are not evidence
     has_index = any(i["name"] == EVIDENCE_INDEX for i in db.evidence().list_search_indexes())
     if has_index and memory.get("embedding"):
         pipeline = [
@@ -34,7 +35,7 @@ def find_evidence(memory: dict) -> dict | None:
                 "filter": {"tenant_id": {"$eq": memory["tenant_id"]}},
             }},
             {"$set": {"score": {"$meta": "vectorSearchScore"}}},
-            {"$match": {"created_at": newer["created_at"]}},  # created_at isn't an index filter field
+            {"$match": {k: newer[k] for k in ("created_at", "verified_by")}},  # not index filter fields
             {"$limit": 1},
             {"$unset": "embedding"},
         ]
@@ -98,7 +99,6 @@ def approve_verdict(verdict_id: str, approved_by: str) -> dict:
     if v["status"] != "proposed":
         raise Conflict(f"verdict is already {v['status']}")
 
-    new_id = None
     if v["outcome"] in ("correct", "quarantine"):
         old = db.memories().find_one({"_id": v["memory_id"]})
         if not old or old["status"] != "active":
@@ -113,14 +113,29 @@ def approve_verdict(verdict_id: str, approved_by: str) -> dict:
                 "created_by": f"court:approved-by:{approved_by}", "created_at": _now(),
                 "expires_at": old["expires_at"],
             }
-        res = db.memories().update_one({"_id": old["_id"], "status": "active"}, {"$set": {"status": "quarantined"}})
-        if res.modified_count != 1:
-            raise Conflict("memory is no longer active")
-        if new:
-            new_id = db.memories().insert_one(new).inserted_id
-            db.memories().update_one({"_id": old["_id"]}, {"$set": {"superseded_by": new_id}})
+    else:
+        old = new = None
 
-    update = {"status": "approved", "approved_by": approved_by, "approved_at": _now(), "new_memory_id": new_id}
-    db.verdicts().update_one({"_id": v["_id"]}, {"$set": update})
+    update = {"status": "approved", "approved_by": approved_by, "approved_at": _now()}
+
+    def write(session):
+        # One transaction: quarantine, insert the new version, link it, approve. All or nothing.
+        new_id = None
+        if old:
+            res = db.memories().update_one({"_id": old["_id"], "status": "active"},
+                                           {"$set": {"status": "quarantined"}}, session=session)
+            if res.modified_count != 1:
+                raise Conflict("memory is no longer active")
+        if new:
+            new_id = db.memories().insert_one(dict(new), session=session).inserted_id
+            db.memories().update_one({"_id": old["_id"]}, {"$set": {"superseded_by": new_id}}, session=session)
+        res = db.verdicts().update_one({"_id": v["_id"], "status": "proposed"},
+                                       {"$set": {**update, "new_memory_id": new_id}}, session=session)
+        if res.modified_count != 1:
+            raise Conflict("verdict is no longer proposed")
+        return new_id
+
+    with db.get_db().client.start_session() as session:
+        update["new_memory_id"] = session.with_transaction(write)
     v.update(update)
     return v
