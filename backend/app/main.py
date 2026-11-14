@@ -4,13 +4,20 @@ from datetime import datetime, timezone
 from bson import ObjectId
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from . import agent, config, court, db, replay, seed, sim
+from .errors import Conflict
 from .retrieval import get_memory
 
 app = FastAPI(title="Memory Court")
 ENC = {ObjectId: str}
+
+
+@app.exception_handler(Conflict)
+def conflict(_request, exc: Conflict):  # replay/court precondition failures -> 409, not 500
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
 
 
 def out(obj):
