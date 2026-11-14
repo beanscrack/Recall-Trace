@@ -20,7 +20,7 @@ def _anthropic():
 @lru_cache
 def _openai():
     import openai
-    return openai.OpenAI(api_key=config.LLM_API_KEY or None)
+    return openai.OpenAI(api_key=config.LLM_API_KEY or None, base_url=config.LLM_BASE_URL)
 
 
 def default_model() -> dict:

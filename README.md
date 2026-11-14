@@ -22,7 +22,9 @@ uvicorn app.main:app --reload --port 8000
 cd frontend && npm install && npm run dev   # http://localhost:5173, /api proxied to :8000
 ```
 
-`LLM_PROVIDER` is `anthropic` or `openai`; `LLM_MODEL` is that provider's model ID.
+`LLM_PROVIDER` is `anthropic` or `openai`; `LLM_MODEL` is that provider's model ID. For an
+OpenAI-compatible endpoint, use `LLM_PROVIDER=openai` and set `LLM_BASE_URL` (e.g. `https://host/v1`).
+The endpoint must support `tools` with `tool_choice: "required"`.
 
 ## MongoDB MCP (for inspecting data from Claude Code)
 
