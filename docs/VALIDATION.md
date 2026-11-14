@@ -6,7 +6,7 @@ Current provider: OpenRouter `nvidia/nemotron-3.5-super-vl:free`. Current embedd
 
 | Check | What was actually verified |
 | --- | --- |
-| 32 offline Python tests | Replay/API behavior; failed agent requests; index readiness; optional DNS; same-service/newer/verified evidence filters; unavailable-index fallback; embedding cache isolation/retry; seed failure preserving data |
+| 34 offline Python tests | Replay/API behavior; failed agent requests; index readiness; optional DNS; same-service/newer/verified evidence filters; unavailable-index fallback; embedding cache isolation/retry; seed failure preserving data |
 | Live Atlas evidence and transaction check | Normal-query fallback excludes wrong-service, blank-verifier, and older evidence. Real transactions roll back a failed replacement insert and a failed verdict update. Success commits quarantine, replacement, service/version links, and approval together. Embeddings are mocked only for these isolated transaction fixtures; fixtures are removed afterward |
 | Full Super VL HTTP rehearsal | Reset/seed, unsafe agent action, contest, stable replay, stale-memory influence, PM-31 correction, named approval, version links, fresh rollback rerun, expiry/quarantine exclusion, Globex search, logged direct-read refusal |
 | Complete public browser walkthrough | Real clicks through the same flow over the temporary HTTPS tunnel; Acme content disappears on tenant switch; no browser JavaScript errors. Uses real Atlas, Voyage, and LLM requests |
@@ -51,3 +51,11 @@ Browser screenshots, raw recording, and response evidence go to ignored `.local/
 - The simulator is process-local; the demo uses one worker. Sessions are demo identities, not authentication.
 - GitHub About metadata still requires owner/admin access. The desired values and owner command are prepared.
 - Final team/submission details and Sandbox-invitation confirmation were explicitly deferred by the user. The project has not been submitted to the competition.
+
+## Legacy shared-seed compatibility
+
+A final read found that the shared dataset had been reset by another process after the recorded browser run. The replacement records came from an older seeder without service tags. The court now recognizes service only for an exact canonical demo `seed_key` + tenant + text match when the tag is absent; changed or unknown legacy text still receives no corrective evidence. Newly approved replacements preserve the resolved service. Two additional offline checks verify these boundaries.
+
+Historical run IDs in the archived JSON can return 404 after a deliberate demo reset. The saved measurements and video describe the recorded run; they are not fabricated replacements for current Atlas records.
+
+The complete `demo_rehearsal.py --reuse-data` path also passed against the actual shared legacy dataset without reseeding Atlas. It explicitly verified that the approved version-2 memory was retrieved on the rollback rerun. Its actual IDs and measured results are preserved in [legacy-seed-run.json](submission/legacy-seed-run.json).

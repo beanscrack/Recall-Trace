@@ -52,6 +52,14 @@ EVIDENCE = [
      "risk-lead@acme-pay", _d(2026, 9, 18), "checkout"),
 ]
 
+# Explicit domain metadata for the canonical demo seeds. Kept separate from the
+# existing tuple contract so flip-test and teammate seed consumers stay compatible.
+SERVICE_BY_SEED = {
+    "stale": "checkout", "rollback": "checkout", "escalate": "checkout",
+    "owner": "checkout", "freeze": "checkout", "globex_pool": "checkout",
+    "globex_failover": "checkout", "tls": "payment-gateway", "leak": "cart",
+}
+
 
 def reset() -> dict:
     """Clears documents (delete_many, not drop: dropping would also drop the search indexes)."""
@@ -64,7 +72,7 @@ def reset() -> dict:
 
     mem_docs = [{
         "tenant_id": tenant, "text": text, "embedding": vecs[i], "status": "active", "version": 1,
-        "service": {"leak": "cart", "tls": "payment-gateway"}.get(key, "checkout"),
+        "service": SERVICE_BY_SEED[key],
         "supersedes": None, "superseded_by": None, "source": source, "source_evidence_id": None,
         "created_by": "agent:incident-responder" if source == "agent_learned" else "human:seed",
         "created_at": created, "expires_at": expires, "seed_key": key,

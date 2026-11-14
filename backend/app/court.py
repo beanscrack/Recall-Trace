@@ -18,15 +18,29 @@ def _now():
     return datetime.now(timezone.utc)
 
 
+def _service(memory: dict) -> str | None:
+    if "service" in memory:
+        service = memory["service"]
+        return service if isinstance(service, str) and service.strip() else None
+    # Older teammate seeders omit service. Recognize only an exact canonical
+    # key/tenant/text match; never classify arbitrary legacy prose or changed text.
+    from .seed import MEMORIES, SERVICE_BY_SEED
+    for key, tenant, text, *_ in MEMORIES:
+        if (memory.get("seed_key"), memory.get("tenant_id"), memory.get("text")) == (key, tenant, text):
+            return SERVICE_BY_SEED.get(key)
+    return None
+
+
 def find_evidence(memory: dict) -> dict | None:
     """Verified, newer, and about the same thing: a lookup, not a model judgment.
 
-    Require explicit service metadata, the same tenant/service, a newer date,
+    Require explicit or exact canonical-seed service metadata, the same tenant/service, a newer date,
     and a nonblank verifier. If the vector index is unavailable, use exactly
     those eligibility rules in the normal-query fallback. Untagged legacy
-    memories cannot be matched safely and receive no corrective evidence.
+    memories cannot be matched safely and receive no corrective evidence unless
+    they exactly match a known demo seed.
     """
-    service = memory.get("service")
+    service = _service(memory)
     if not isinstance(service, str) or not service.strip():
         return None
     newer = {"tenant_id": memory["tenant_id"], "service": service,
@@ -124,7 +138,7 @@ def approve_verdict(verdict_id: str, approved_by: str) -> dict:
         if v["outcome"] == "correct":  # embed before any write so a Voyage failure changes nothing
             new = {
                 "tenant_id": old["tenant_id"], "text": v["proposed_text"],
-                "service": old.get("service"),
+                "service": _service(old),
                 "embedding": embed([v["proposed_text"]])[0], "status": "active",
                 "version": old["version"] + 1, "supersedes": old["_id"], "superseded_by": None,
                 "source": "court_correction", "source_evidence_id": v["evidence_id"],

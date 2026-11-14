@@ -35,6 +35,20 @@ class EvidenceTest(unittest.TestCase):
         self.coll.find_one.assert_not_called()
         self.coll.list_search_indexes.assert_not_called()
 
+    def test_exact_legacy_seed_uses_its_explicit_canonical_service(self):
+        key, tenant, text, *_ = seed.MEMORIES[0]
+        self.memory.update(seed_key=key, tenant_id=tenant, text=text)
+        self.memory.pop('service')
+        court.find_evidence(self.memory)
+        self.assertEqual(self.coll.find_one.call_args.args[0]['service'], 'checkout')
+
+    def test_changed_legacy_seed_text_cannot_inherit_service(self):
+        key, tenant, text, *_ = seed.MEMORIES[0]
+        self.memory.update(seed_key=key, tenant_id=tenant, text=text + ' changed')
+        self.memory.pop('service')
+        self.assertIsNone(court.find_evidence(self.memory))
+        self.coll.find_one.assert_not_called()
+
     def test_building_index_uses_eligible_normal_query(self):
         self.coll.list_search_indexes.return_value = [{'name': court.EVIDENCE_INDEX, 'queryable': False}]
         court.find_evidence(self.memory)

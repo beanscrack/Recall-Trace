@@ -12,7 +12,8 @@ A named reviewer approves a correction against newer verified evidence for the s
 
 - Public source: https://github.com/beanscrack/Recall-Trace
 - Temporary live app and video: [deployment details](../DEPLOYMENT.md)
-- Actual run IDs and measured results: [validated-run.json](validated-run.json)
+- Actual recorded browser run: [validated-run.json](validated-run.json)
+- Legacy-seed compatibility rehearsal: [legacy-seed-run.json](legacy-seed-run.json)
 - Tests and limits: [validation report](../VALIDATION.md)
 
 The one-minute video contains actual browser captures and source-code excerpts, with generated narration. A complete raw browser recording is retained locally. This is a simulated checkout system with a session picker, not real authentication or production payments.

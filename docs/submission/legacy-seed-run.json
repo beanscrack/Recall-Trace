@@ -1,0 +1,23 @@
+{
+  "date": "2026-11-14",
+  "mode": "existing canonical legacy seed; no Atlas reset by this rehearsal",
+  "model": "nvidia/nemotron-3.5-super-vl:free",
+  "original_decision_id": "6af8ae169f0d547b5a97bf2a",
+  "replay_id": "6af8ae1f9f0d547b5a97bf2b",
+  "verdict_id": "6af8ae279f0d547b5a97bf2c",
+  "rerun_id": "6af8ae2e9f0d547b5a97bf2f",
+  "baseline_stability": 1.0,
+  "flip_rates": [
+    1.0,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "before_action": "disable_fraud_checks",
+  "after_action": "rollback_deployment",
+  "before_fraud_rate": 0.071,
+  "after_fraud_rate": 0.004,
+  "approved_by": "reviewer-dana",
+  "corrected_memory_retrieved": true,
+  "corrected_memory_service": "checkout"
+}

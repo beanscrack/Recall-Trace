@@ -10,7 +10,7 @@ Owners reflect the team's original assignments; this checklist does not establis
 | B4 | Us: backend / replay | Validate live retrieval, expiry, quarantine, and tenant boundaries | Done: six live nonempty searches passed tenant/status/expiry checks; both cross-tenant direct reads were refused and logged (Voyage paced at 21-second intervals) |
 | B5 | Us: backend / replay | Run real LLM decision and replay using current code | Done with OpenRouter nvidia/nemotron-3.5-super-vl:free: real tool call, flip gate 5/5 both ways, fresh Atlas-backed decision/replay, and forced correction draft passed |
 | B6 | Us: backend / replay | Verify live API integration and failed-agent behavior | Done: real Atlas/Voyage API checks passed; stored decision/replay/verdict serialization and tenant guards passed; failure regression tests confirm no tool execution or decision write |
-| C1 | Backend / correction | Tighten evidence eligibility | Done: explicit same-service/newer/verified eligibility, safe legacy behavior, and deliberate unavailable-index fallback; offline and live tests passed |
+| C1 | Backend / correction | Tighten evidence eligibility | Done: explicit same-service/newer/verified eligibility, exact canonical legacy-seed compatibility, safe handling of unknown legacy text, and deliberate unavailable-index fallback; offline and live tests passed |
 | C2 | Backend / correction | Verify correction approval and failure handling | Done: real Atlas rollback after injected insert/verdict failures and atomic success; temporary test fixtures removed |
 | F1 | Frontend | Live dashboard and API integration | Done: complete real-browser workflow passed over the public HTTPS tunnel |
 | F2 | Frontend | Replay failure states and before/after display | Done: failed calls are not shown as flips, status explanations and retry added; three mocked browser states passed separately from real workflow |
@@ -24,7 +24,7 @@ Seeding replaces demo documents. Existing Atlas data includes decisions, replay,
 
 ## Verified in this workspace
 
-- 32 offline checks passed, including evidence fallback, query-vector cache isolation, and seed-failure preservation.
+- 34 offline checks passed, including evidence fallback, query-vector cache isolation, and seed-failure preservation.
 - Live application Atlas ping and real Voyage document/query embeddings passed.
 - Both vector indexes are READY/queryable with 1024-dimensional vector fields.
 - Six live retrieval cases returned only eligible same-tenant memories; both direct-read refusal checks were logged.
@@ -60,3 +60,5 @@ On 2026-11-14, configured the ignored local `.env` for `nvidia/nemotron-3.5-supe
 ## Completion evidence
 
 See [VALIDATION.md](VALIDATION.md) for the final real-service/browser results and [DEPLOYMENT.md](DEPLOYMENT.md) for the temporary live URL, video, hosting recipe, and owner-only GitHub metadata action. Submission details remain deferred; no external competition submission is claimed.
+
+The shared dataset was later reset by another process using old seeds. Compatibility was added only for exact canonical seed/key/tenant/text matches; unknown or changed legacy text still cannot inherit a service. The full no-reseed legacy rehearsal passed, including actual corrected-memory retrieval. Its measured run is archived separately in `docs/submission/legacy-seed-run.json`.

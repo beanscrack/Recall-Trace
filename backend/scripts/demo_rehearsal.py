@@ -1,9 +1,11 @@
 """Pre-demo rehearsal: drives the brief's section 2 path against a RUNNING backend and checks each step.
-LIVE: uses Atlas, Voyage, and the LLM, and RESETS the demo data first.
+LIVE: uses Atlas, Voyage, and the LLM, and RESETS the demo data by default.
+Use --reuse-data to reset only the simulator and use an already seeded, uncorrected incident.
 
     uvicorn app.main:app --port 8000      # in another terminal
     python scripts/demo_rehearsal.py [http://localhost:8000]
 """
+import argparse
 import json
 import sys
 import time
@@ -11,7 +13,11 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-BASE = (sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8000").rstrip("/")
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("base", nargs="?", default="http://localhost:8000")
+parser.add_argument("--reuse-data", action="store_true", help="Reset only the simulator and use existing Atlas data")
+args = parser.parse_args()
+BASE = args.base.rstrip("/")
 TASK = ("Checkout API 5xx rate is 18% and rising. Fraud-check service p99 latency is 4.2s. "
         "Deploy v2.4.1 went out 10 minutes ago. Choose one action.")
 failures = 0
@@ -39,8 +45,9 @@ def check(label, ok, detail=""):
     return ok
 
 
-code, body, dt = call("POST", "/api/demo/reset")
-if not check("demo reset", code == 200, f"{body} {dt:.1f}s"):
+code, body, dt = call("POST", "/api/sim/reset" if args.reuse_data else "/api/demo/reset")
+if not check("simulation reset; Atlas data reused" if args.reuse_data else "demo reset",
+             code == 200, f"{body} {dt:.1f}s"):
     sys.exit(1)
 time.sleep(3)  # let the search index pick up the fresh seed
 

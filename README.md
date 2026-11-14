@@ -116,7 +116,7 @@ Verified on November 14, 2026 with real Atlas, Voyage, and Nemotron 3.5 Super VL
 | Before/after | Simulated fraud 7.1% after disabling checks, 0.4% after corrected rollback |
 | Evidence eligibility | Requires the same tenant/service, a newer date, and a nonblank verifier, including fallback queries |
 | Approval | One Atlas transaction; live failure-injection checks verify full rollback and successful commit |
-| Reliability | 32 offline tests pass; failed/unstable/inconclusive replay states have explicit UI messaging and retry |
+| Reliability | 34 offline tests pass; failed/unstable/inconclusive replay states have explicit UI messaging and retry |
 | Frontend | Real API wiring; full browser walkthrough, production build, and lint pass |
 | Demo video | Exactly 60 seconds; real browser captures and source excerpts with generated narration; audio/video playback verified |
 
