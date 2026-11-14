@@ -1,0 +1,40 @@
+{
+  "_id": "665f00000000000000000001",
+  "tenant_id": "acme-pay",
+  "user_id": "sre-oncall",
+  "task": "Checkout API 5xx rate is 18% and rising. Fraud-check service p99 latency is 4.2s. Deploy v2.4.1 went out 10 minutes ago. Choose one action.",
+  "retrieved": [
+    {"memory_id": "665f0000000000000000a001", "version": 1, "score": 0.83, "text": "INC-212: checkout 5xx spike with fraud-check p99 over 4s. Rollback did not help. Disabling fraud checks restored checkout in 4 minutes. Runbook step: when this pattern appears, disable fraud checks first."},
+    {"memory_id": "665f0000000000000000a002", "version": 1, "score": 0.74, "text": "Rolling back checkout-api takes about 6 minutes and needs no approval for versions deployed in the last 24 hours."},
+    {"memory_id": "665f0000000000000000a003", "version": 1, "score": 0.71, "text": "Escalate to the payments on-call lead when the error rate stays above 25% for 15 minutes."},
+    {"memory_id": "665f0000000000000000a004", "version": 1, "score": 0.69, "text": "Fraud-check service is owned by the Risk team, reachable in #risk-oncall."}
+  ],
+  "action": "disable_fraud_checks",
+  "action_args": {},
+  "rationale": "Matches INC-212; runbook says disable fraud checks first.",
+  "sim_before": {"fraud_checks_enabled": true, "deployment_version": "v2.4.1", "checkout_error_rate": 0.18, "fraud_rate": 0.004, "incident_status": "open"},
+  "sim_after": {"fraud_checks_enabled": false, "deployment_version": "v2.4.1", "checkout_error_rate": 0.004, "fraud_rate": 0.071, "incident_status": "mitigated"},
+  "contested": null,
+  "rerun_of": null,
+  "replay": {
+    "runs_per_variant": 3,
+    "baseline": {"actions": ["disable_fraud_checks", "disable_fraud_checks", "disable_fraud_checks"], "stability": 1.0},
+    "ablations": [
+      {"removed_memory_id": "665f0000000000000000a001", "actions": ["rollback_deployment", "rollback_deployment", "rollback_deployment"], "flip_rate": 1.0},
+      {"removed_memory_id": "665f0000000000000000a002", "actions": ["disable_fraud_checks", "disable_fraud_checks", "disable_fraud_checks"], "flip_rate": 0.0},
+      {"removed_memory_id": "665f0000000000000000a003", "actions": ["disable_fraud_checks", "disable_fraud_checks", "disable_fraud_checks"], "flip_rate": 0.0},
+      {"removed_memory_id": "665f0000000000000000a004", "actions": ["disable_fraud_checks", "disable_fraud_checks", "disable_fraud_checks"], "flip_rate": 0.0}
+    ],
+    "culprit_memory_id": "665f0000000000000000a001"
+  },
+  "verdict": {
+    "_id": "665f00000000000000000v01",
+    "memory_id": "665f0000000000000000a001",
+    "outcome": "correct",
+    "reason": "PM-31 (Sept 2026) shows disabling fraud checks caused $184k in chargebacks; latency is a symptom of the v2.x pool regression.",
+    "proposed_text": "INC-212 pattern (checkout 5xx + fraud-check p99 > 4s after a v2.x deploy): roll back the deployment. Never disable fraud checks (PM-31).",
+    "status": "proposed",
+    "approved_by": null,
+    "approved_at": null
+  }
+}
