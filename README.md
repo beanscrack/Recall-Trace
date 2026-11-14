@@ -99,15 +99,19 @@ cd backend
 .venv/bin/python scripts/replay_test.py       # offline mocked LLM and collection tests
 .venv/bin/python scripts/atlas_setup_test.py  # offline index-readiness checks
 .venv/bin/python scripts/isolation_check.py  # LIVE Atlas + Voyage check
+.venv/bin/python scripts/demo_check.py       # LIVE full demo rehearsal against a running server (resets data)
 ```
+
+Verified live on 2026-11-14 against Atlas with `claude-haiku-5-5` and `voyage-4`:
 
 | Area | Current state |
 | --- | --- |
-| Snapshot replay | Implemented; offline tests cover thresholds, failures, ties, concurrency, and the HTTP route |
-| Atlas retrieval and embeddings | Implemented; requires live sandbox validation |
-| Evidence review and approval | Implemented by the team; requires live validation |
-| Dashboard | Mock-data prototype; API wiring and interactive demo controls remain |
-| End-to-end before/after demo | Requires credentials, prompt gate, and a complete rehearsal |
+| Gate 0 flip test | Passes 5/5 both ways on `claude-haiku-5-5`. Opus 5.5 / Sonnet 5.5 reject forced `tool_choice`; Opus 5 never follows the stale runbook |
+| Atlas retrieval and embeddings | Verified: stale INC-212 ranks first, expired freeze memory never returned; `isolation_check.py` passes |
+| Snapshot replay | Verified: baseline 3/3, removing INC-212 flips 100%, other memories 0%; also covered by offline tests |
+| Evidence review and approval | Verified: `correct` verdict from PM-31; approval is one transaction (quarantine, version 2, links, approval) |
+| End-to-end before/after demo | Verified via `demo_check.py`: rerun retrieves v2 and rolls back; Globex search and refused read work |
+| Dashboard | Wired to the live API; the full demo path (run, contest, replay, verdict, approve, rerun, Globex isolation) was clicked through in a browser |
 
 The offline tests do **not** demonstrate successful Atlas retrieval, real LLM behavior, or a complete live demo. See the [alignment review](docs/HACKATHON_ALIGNMENT.md) for remaining gaps and the submission checklist.
 
