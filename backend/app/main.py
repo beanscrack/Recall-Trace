@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from . import agent, config, court, db, replay, seed, sim
 from .errors import Conflict
-from .retrieval import get_memory
+from .retrieval import get_memory, search_memories
 
 app = FastAPI(title="RecallTrace")
 ENC = {ObjectId: str}
@@ -104,6 +104,12 @@ def approve(verdict_id: str, s=Depends(session)):
     if not v or not db.decisions().find_one({"_id": v["decision_id"], "tenant_id": s["tenant_id"]}):
         raise HTTPException(404, "not found")
     return out(court.approve_verdict(verdict_id, s["user_id"]))
+
+
+@app.get("/api/search")
+def search(q: str, s=Depends(session)):
+    """Isolation panel: the agent's own retrieval path, run as the session tenant."""
+    return out(search_memories(s["tenant_id"], s["user_id"], q))
 
 
 @app.get("/api/memories")
