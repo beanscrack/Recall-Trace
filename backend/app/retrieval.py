@@ -26,7 +26,7 @@ def search_memories(tenant_id: str, user_id: str, query: str, k: int = 4) -> lis
             "path": "embedding",
             "queryVector": embed_query(query),
             "numCandidates": 100,
-            "limit": k,
+            "limit": k + 4,  # headroom for the live re-check below; trimmed to k after it
             "filter": {"$and": [
                 {"tenant_id": {"$eq": tenant_id}},
                 {"status": {"$eq": "active"}},
@@ -34,6 +34,10 @@ def search_memories(tenant_id: str, user_id: str, query: str, k: int = 4) -> lis
             ]},
         }},
         {"$set": {"score": {"$meta": "vectorSearchScore"}}},
+        # Re-check live fields: the search index lags writes by ~1s, so a just-quarantined memory could
+        # otherwise still match the pre-filter above.
+        {"$match": {"tenant_id": tenant_id, "status": "active", "expires_at": {"$gt": now}}},
+        {"$limit": k},
         {"$unset": "embedding"},
     ]
     docs = list(db.memories().aggregate(pipeline))
