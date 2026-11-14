@@ -214,6 +214,104 @@ class ReplayTest(unittest.TestCase):
         decide.assert_not_called()
         self.replays.insert_one.assert_not_called()
 
+    def pair_run(self, choose):
+        with patch.object(replay.llm, "decide", side_effect=choose) as calls:
+            result = replay.run_replay(str(self.doc["_id"]), include_pairs=True)
+        self.assertEqual(self.doc, self.original)
+        self.assertEqual(result["tenant_id"], "acme-pay")
+        self.replays.insert_one.assert_called_once_with(result)
+        return result, calls
+
+    def test_pair_redundant_memories_detected_without_single_culprit(self):
+        def choose(system, task, memories, tools, model):
+            self.assertEqual((system, task, tools, model), (self.doc["system_prompt"], self.doc["task"], self.doc["tools"], self.doc["model"]))
+            ids = [m["memory_id"] for m in memories]
+            self.assertEqual(ids, [str(i) for i in self.ids if str(i) in ids])
+            return {"action": "disable_fraud_checks" if any(str(i) in ids for i in self.ids[:2]) else "rollback_deployment"}
+        result, calls = self.pair_run(choose)
+        self.assertEqual(calls.call_count, 21)
+        self.assertEqual(result["status"], "no_clear_influence")
+        self.assertIsNone(result["culprit_memory_id"])
+        self.assertEqual(result["pairs"]["status"], "group_influence_detected")
+        self.assertEqual(result["pairs"]["candidate_memory_ids"], self.ids[:2])
+        self.assertEqual([a["flip_rate"] for a in result["pairs"]["ablations"]], [1, 0, 0])
+
+    def test_pairs_skip_unstable_baseline(self):
+        result, calls = self.pair_run(lambda *args: {"action": "rollback_deployment"})
+        self.assertEqual(calls.call_count, 3)
+        self.assertEqual(result["pairs"]["status"], "not_run")
+
+    def test_pairs_skip_when_single_memory_detected(self):
+        result, calls = self.pair_run(self.influenced)
+        self.assertEqual(calls.call_count, 12)
+        self.assertEqual(result["pairs"]["ablations"], [])
+
+    def test_pair_ties_have_no_candidate(self):
+        result, _ = self.pair_run(lambda s, t, m, *args: {"action": "rollback_deployment" if len(m) == 1 else "disable_fraud_checks"})
+        self.assertEqual(result["pairs"]["status"], "no_clear_influence")
+        self.assertEqual(result["pairs"]["candidate_memory_ids"], [])
+
+    def test_pair_failure_is_not_a_flip(self):
+        def choose(s, t, m, *args):
+            if len(m) == 1:
+                raise RuntimeError("private provider detail")
+            return {"action": "disable_fraud_checks"}
+        result, _ = self.pair_run(choose)
+        self.assertEqual(result["pairs"]["status"], "incomplete")
+        self.assertEqual(result["pairs"]["candidate_memory_ids"], [])
+        self.assertTrue(all(a["flip_rate"] == 0 for a in result["pairs"]["ablations"]))
+        self.assertNotIn("private provider detail", str(result))
+
+    def test_single_failure_prevents_pairs(self):
+        def choose(s, t, m, *args):
+            if len(m) == 2:
+                raise RuntimeError("failed")
+            return {"action": "disable_fraud_checks"}
+        result, calls = self.pair_run(choose)
+        self.assertEqual(calls.call_count, 12)
+        self.assertEqual(result["pairs"]["status"], "not_run")
+
+    def test_four_memories_test_all_six_pairs(self):
+        self.ids.append(ObjectId())
+        self.doc["retrieved"].append({"memory_id": self.ids[-1], "text": "fourth", "version": 1})
+        self.original = deepcopy(self.doc)
+        result, calls = self.pair_run(lambda *args: {"action": "disable_fraud_checks"})
+        self.assertEqual(calls.call_count, 33)
+        self.assertEqual(len(result["pairs"]["ablations"]), 6)
+        self.assertEqual(result["pairs"]["candidate_memory_ids"], [])
+
+    def test_pair_threshold_inclusive(self):
+        counts = Counter()
+        lock = Lock()
+        def choose(s, t, m, *args):
+            key = tuple(x["memory_id"] for x in m)
+            with lock:
+                counts[key] += 1
+                run = counts[key]
+            return {"action": "rollback_deployment" if key == (str(self.ids[2]),) and run <= 2 else "disable_fraud_checks"}
+        result, _ = self.pair_run(choose)
+        self.assertEqual(result["pairs"]["status"], "group_influence_detected")
+        self.assertEqual(result["pairs"]["ablations"][0]["flip_rate"], 2 / 3)
+
+    def test_pair_size_guard_before_llm(self):
+        self.doc["retrieved"] = self.doc["retrieved"][:1]
+        with patch.object(replay.llm, "decide") as calls:
+            with self.assertRaises(Conflict):
+                replay.run_replay(str(self.doc["_id"]), include_pairs=True)
+        calls.assert_not_called()
+
+    def test_pair_route_serialization_and_isolation(self):
+        with patch.object(replay.llm, "decide", return_value={"action": "disable_fraud_checks"}):
+            response = TestClient(main.app).post(f"/api/decisions/{self.doc['_id']}/replay?include_pairs=true", headers={"X-User": "sre-oncall"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()["pairs"]["ablations"]), 3)
+        self.assertIsInstance(response.json()["pairs"]["ablations"][0]["removed_memory_ids"][0], str)
+        self.decisions.find_one.return_value = None
+        with patch.object(replay, "run_replay") as run:
+            response = TestClient(main.app).post(f"/api/decisions/{self.doc['_id']}/replay?include_pairs=true", headers={"X-User": "platform-lee"})
+        self.assertEqual(response.status_code, 404)
+        run.assert_not_called()
+
     def test_existing_route_serializes_replay(self):
         with patch.object(replay.llm, "decide", side_effect=self.influenced):
             response = TestClient(main.app).post(

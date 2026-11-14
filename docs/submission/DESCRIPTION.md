@@ -1,23 +1,28 @@
-# RecallTrace
+# RecallTrace — Cerebral Valley submission description
 
-**Trace the memory. Review the evidence. Change the next decision.**
+**Event:** Agents in Context Toronto: a MongoDB Hackathon
 
-RecallTrace helps teams debug and govern persistent AI memory. In a simulated checkout incident, an agent follows an outdated runbook and disables fraud checks. Black Box replays the exact recorded decision with individual memories removed, measuring action changes across repeated trials. It provides evidence of memory influence without claiming causal proof.
+**Track:** Memory You Can Govern
 
-MongoDB Atlas stores versioned memories, evidence, decision snapshots, replays, approvals, and access logs. Atlas Vector Search retrieves semantically relevant memories with tenant, active-status, and expiry filters. Voyage supplies embeddings, and Nemotron 3.5 Super VL supplies structured tool calls through OpenRouter.
+**Tagline:** Better decisions start with better memory.
 
-A named reviewer approves a correction against newer verified evidence for the same service. One Atlas transaction quarantines the old memory and links its replacement. Fresh retrieval changes the agent's action from disabling fraud checks to rolling back the deployment. A second tenant cannot retrieve or directly read the first tenant's memories.
+## Project description
 
-## Links and materials
+RecallTrace helps teams investigate and govern the memories behind AI agent decisions. An agent can repeatedly follow outdated advice even when its code is correct. We make that remembered context inspectable and correctable.
 
-- Public source: https://github.com/beanscrack/Recall-Trace
-- Temporary live app and video: [deployment details](../DEPLOYMENT.md)
-- Actual recorded browser run: [validated-run.json](validated-run.json)
-- Legacy-seed compatibility rehearsal: [legacy-seed-run.json](legacy-seed-run.json)
-- Tests and limits: [validation report](../VALIDATION.md)
+In our checkout simulation, an agent retrieves an old runbook and disables fraud checks. Black Box replay repeats the exact recorded decision with individual memories removed, measuring changes in structured tool selection. These comparisons identify evidence of influence, not mathematical proof of causation.
 
-The one-minute video contains actual browser captures and source-code excerpts, with generated narration. A complete raw browser recording is retained locally. This is a simulated checkout system with a session picker, not real authentication or production payments.
+MongoDB Atlas is essential to the workflow. Voyage AI embeddings and Atlas Vector Search retrieve relevant memories with tenant, status, and expiry filtering. Atlas persists decision snapshots, replay measurements, evidence, approvals, and access logs. A reviewer checks newer verified evidence and approves a correction. One Atlas transaction quarantines the old memory and links its replacement.
 
-## Deferred final submission details
+Fresh retrieval then changes what the agent sees. In our validated run, the agent chose rollback instead of disabling fraud checks, and simulated fraud changed from 7.1% to 0.4%. A second tenant could neither retrieve nor directly read the first tenant’s memories.
 
-The user explicitly deferred the team name, member list, Cerebral Valley submission URL/account, and confirmation that the Atlas cluster was created through the event Sandbox invitation. Do not invent those details or claim finalist eligibility from a successful database connection alone. No competition submission has been made.
+The prototype includes a six-tab dashboard, repeated replay, human-approved versioning, 44 passing backend tests, and a verified live browser workflow. It targets incident-response and platform teams operating agents with persistent memory. Checkout outcomes are simulated, and the identity picker is a demo mechanism rather than production authentication.
+
+## Links
+
+- [Public GitHub repository](https://github.com/beanscrack/Recall-Trace)
+- [Temporary live demo](https://hero-momentum-depot-floating.trycloudflare.com)
+- [Existing one-minute video](https://hero-momentum-depot-floating.trycloudflare.com/demo.mp4) — earlier UI revision; same core workflow
+- [Latest validation](../TEST_REPORT.md)
+
+See the [submission checklist](README.md) for team details, video replacement, and eligibility checks still needed before submitting. Pairwise replay is an optional backend extension and is not part of the judge-facing demo.

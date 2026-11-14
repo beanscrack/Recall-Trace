@@ -2,141 +2,158 @@
 
 # RecallTrace
 
-**Trace the memory. Review the evidence. Change the next decision.**
+### Better decisions start with better memory.
 
-Agent memory governance with MongoDB Atlas, Vector Search, and counterfactual replay.
+Investigate the memories behind an agent's decision. Approve a correction. Measure what changes next.
 
-[Live demo (temporary)](https://hero-momentum-depot-floating.trycloudflare.com) · [One-minute video](https://hero-momentum-depot-floating.trycloudflare.com/demo.mp4) · [Validation](docs/VALIDATION.md) · [Deployment](docs/DEPLOYMENT.md) · [Team tasks](docs/TASKS.md)
+**Agents in Context Toronto: a MongoDB Hackathon** · November 14, 2026
+
+**Track 2 — Memory You Can Govern**
+
+[Try the demo](https://hero-momentum-depot-floating.trycloudflare.com) · [Watch the 60-second video](https://hero-momentum-depot-floating.trycloudflare.com/demo.mp4) · [Submission brief](docs/submission/DESCRIPTION.md) · [Test evidence](docs/TEST_REPORT.md)
 
 </div>
 
-## The problem
+![Actual RecallTrace demo: disabling fraud checks at 7.1% simulated fraud before correction, rollback at 0.4% after correction](docs/assets/demo-comparison.png)
 
-An agent can repeat an unsafe action because its memory contains an outdated runbook. RecallTrace records exactly what the agent retrieved and uses repeated, single-step counterfactual replays to measure which memory's removal changes the selected tool. A reviewer can then approve a correction against newer evidence and rerun the incident through fresh Atlas retrieval.
+*Captured from a real Atlas/Voyage/LLM browser rehearsal. Checkout actions and fraud rates are simulated. The temporary demo and video links require our local server to remain online; the existing video shows an earlier UI revision of the same workflow.*
 
-Replay provides evidence of influence. Three samples do not establish causation or statistical confidence.
+## Why we built it
 
-## Demo scenario
+An AI agent can keep making the same mistake because it remembers outdated advice. Changing its code or prompt does not explain which stored memory influenced a particular decision—or provide a reviewable process for repairing that memory.
 
-1. A checkout incident retrieves an outdated incident-response memory from Atlas Vector Search.
-2. The agent chooses `disable_fraud_checks`; the simulated fraud rate rises.
-3. **Black Box replay** removes one recorded memory at a time and reports action-flip rates.
-4. **Evidence review** proposes a correction; a human approves quarantine and a linked replacement.
-5. Fresh retrieval should lead the agent to `rollback_deployment`.
-6. A second tenant's retrieval and direct-read checks demonstrate isolation.
+RecallTrace gives incident-response and platform teams a way to investigate the agent's recorded context, compare it against newer verified evidence, and approve a traceable correction. The next run retrieves the updated memory from MongoDB Atlas.
 
-All checkout actions are simulated. Replay itself executes no actions.
+**The distinctive feature is Black Box replay:** repeated, controlled comparisons of the same decision with individual memories removed. It measures changes in structured tool selection rather than asking the model to guess what influenced it. These comparisons provide evidence of influence, not proof of causation.
 
-## Architecture
+## The demo in six tabs
+
+| Step | What happens | What to look for |
+| --- | --- | --- |
+| **1. Run incident** | Checkout errors rise after a deployment; Atlas retrieves relevant incident memories | An outdated runbook recommends disabling fraud checks |
+| **2. Inspect decision** | A real model chooses a tool; the checkout simulator applies it | Selected action, retrieved memory IDs, and the simulated outcome |
+| **3. Replay memories** | Replay repeats the baseline and removes each recorded memory individually | Baseline stability, actual tool choices, and action-flip rates |
+| **4. Review correction** | Newer verified evidence informs a proposed replacement; a person approves | Evidence provenance, reviewer identity, quarantine, and version links |
+| **5. Compare outcomes** | The same incident runs again with fresh retrieval | Whether the action changed and the replacement was retrieved |
+| **6. Check isolation** | Switch from Acme to Globex | Tenant-only search results and a logged refusal to read Acme memory |
+
+In the validated run, the action changed from `disable_fraud_checks` to `rollback_deployment`, and simulated fraud changed from **7.1% to 0.4%**. Removing the stale memory changed the action in **3/3** replay trials; the other individual removals changed it in **0/3**. These are observed results from that run, not guaranteed outputs or measured business impact.
+
+[Three-minute judging walkthrough](docs/JUDGING.md) · [One-minute video script](docs/submission/VIDEO_SCRIPT.md)
+
+## MongoDB Atlas is the memory and governance layer
+
+| Capability | How it works in RecallTrace |
+| --- | --- |
+| **Semantic memory retrieval** | Voyage `voyage-4` produces 1024-dimensional embeddings; Atlas Vector Search finds relevant memories |
+| **Governed access** | Tenant, active-status, and expiry filters run inside `$vectorSearch`; live fields are rechecked for search-index lag |
+| **Reproducible inputs** | `decisions` stores the original task, prompt, tools, model configuration, and exact retrieved text/version snapshot |
+| **Measured investigation** | `replays` stores actual baseline/ablation actions, failures, and flip rates; replay never executes tools or re-queries memories |
+| **Verified correction** | Evidence must match the tenant/service, be newer, and have a nonblank verifier |
+| **Atomic approval** | One Atlas transaction quarantines the old memory, creates and links a replacement, and records approval |
+| **Auditability** | Version history, verdicts, retrieval events, and refused direct reads remain inspectable in Atlas |
+
+Voyage represents semantic similarity; it does not create causal relationships between memories. The application uses PyMongo directly. MongoDB MCP configuration is provided as a development aid, not claimed as part of the runtime path.
 
 ```mermaid
 flowchart LR
-    UI[React dashboard] --> API[FastAPI / session tenant]
+    UI[Tabbed React dashboard] --> API[FastAPI / demo identity]
     API --> RET[Governed retrieval]
-    VOY[Voyage AI embeddings] --> RET
-    RET --> VS[Atlas Vector Search]
-    VS --> MEM[(Atlas memories)]
-    RET --> LLM[Structured LLM tool choice]
+    VOY[Voyage embeddings] --> RET
+    RET <--> MEM[(Atlas memories / Vector Search)]
+    RET --> LLM[Structured model decision]
     LLM --> SIM[Checkout simulator]
-    LLM --> DEC[(Atlas decision snapshots)]
-    DEC --> REPLAY[Black Box replay]
-    REPLAY --> RESULTS[(Atlas replay results)]
-    RESULTS --> REVIEW[Evidence review]
-    EV[(Atlas evidence)] --> REVIEW
-    REVIEW --> HUMAN[Human approval]
-    HUMAN --> MEM
+    LLM --> SNAP[(Atlas decision snapshot)]
+    SNAP --> BB[Black Box replay / no actions]
+    BB --> RP[(Atlas replay results)]
+    RP --> COURT[Evidence review]
+    EV[(Atlas verified evidence)] --> COURT
+    COURT --> HUMAN[Human approval]
+    HUMAN --> TX[Atlas transaction / quarantine + replacement]
+    TX --> MEM
 ```
 
-Atlas stores memories, evidence, decision snapshots, replay results, verdicts, and access logs. Retrieval pre-filters tenant, active status, and expiry inside `$vectorSearch`. Version links preserve correction history. The checkout simulator is held in process memory; its before/after snapshots are recorded with decisions.
+**Stack:** Python 3.12 · FastAPI · PyMongo · MongoDB Atlas / Vector Search · Voyage AI · React · TypeScript · Vite · Tailwind CSS. The validated model is Nemotron 3.5 Super VL through OpenRouter, using the existing OpenAI-compatible adapter; an Anthropic adapter is also available.
 
-| Component | Technology |
-| --- | --- |
-| Memory, audit, and decision persistence | MongoDB Atlas Hackathon Sandbox / PyMongo |
-| Semantic retrieval | Atlas Vector Search |
-| Embeddings | Voyage AI (`voyage-4`, 1024 dimensions by default) |
-| Decision and correction drafts | Nemotron 3.5 Super VL through OpenRouter; Anthropic/OpenAI-compatible adapters |
-| API | Python 3.12 / FastAPI |
-| Dashboard | React / TypeScript / Vite / Tailwind CSS |
+## Run it locally
 
-## Run locally
-
-Use the **event-issued Atlas Sandbox invitation** to create the project and cluster; an unrelated Atlas cluster does not satisfy the guide's finalist requirement.
-
-Prerequisites: Python 3.12, Node.js 22.12+ (or 20.19+), a sandbox connection string, a Voyage API key, and an LLM API key with tool-calling support.
-
-From the repository root:
+Prerequisites: Python 3.12, Node.js 22.12+ (or 20.19+), an Atlas cluster, and Voyage/model API credentials. Event entrants should use the organizer-issued Atlas Sandbox invitation; cluster provenance must be confirmed separately from connection health.
 
 ```bash
+git clone https://github.com/beanscrack/Recall-Trace.git
+cd Recall-Trace
 cp .env.example .env
 python3.12 -m venv backend/.venv
 backend/.venv/bin/python -m pip install -r backend/requirements.txt
 ```
 
-Fill in `.env`: `MONGODB_URI`, `VOYAGE_API_KEY`, `LLM_PROVIDER`, `LLM_MODEL`, and `LLM_API_KEY`. For an OpenAI-compatible endpoint, also set `LLM_BASE_URL`. Never commit credentials. The internal database namespace remains `memory_court` to preserve teammates' existing Atlas data and indexes; the product is named RecallTrace.
-
-If your environment cannot resolve Atlas SRV records while public DNS can, set `MONGODB_DNS_NAMESERVERS=1.1.1.1,1.0.0.1` in `.env`. This optional override configures dnspython inside the backend process; it does not change system DNS. Leave it blank to use system defaults. See the [dnspython resolver documentation](https://dnspython.readthedocs.io/en/stable/resolver-class.html).
-
-```bash
-cd backend
-source .venv/bin/activate
-python scripts/flip_test.py           # real-provider prompt gate; requires LLM credentials
-python scripts/setup_atlas.py --seed  # creates indexes, waits, then REPLACES demo documents
-uvicorn app.main:app --reload --port 8000
-```
-
-In another terminal:
-
-```bash
-cd frontend
-npm ci
-npm run dev
-```
-
-The dashboard runs at `http://localhost:5173`, with `/api` proxied to port 8000. The API schema is at `http://localhost:8000/docs`.
-
-## Validation and current status
-
-```bash
-cd backend
-.venv/bin/python scripts/replay_test.py       # offline mocked LLM and collection tests
-.venv/bin/python scripts/atlas_setup_test.py  # offline index-readiness checks
-.venv/bin/python scripts/db_dns_test.py       # offline opt-in DNS checks
-.venv/bin/python scripts/agent_failure_test.py # offline failed-agent behavior
-.venv/bin/python scripts/isolation_check.py  # LIVE Atlas + Voyage check
-.venv/bin/python scripts/demo_check.py       # LIVE API checks using existing data
-.venv/bin/python scripts/demo_rehearsal.py   # LIVE full demo rehearsal against a running server (RESETS data)
-```
-
-Verified on November 14, 2026 with real Atlas, Voyage, and Nemotron 3.5 Super VL through OpenRouter:
-
-| Area | Result |
-| --- | --- |
-| Full HTTP and public-browser demo | Passed: unsafe decision, replay, verified correction, named approval, rollback rerun, and tenant isolation |
-| Recorded influence | Stable baseline 3/3; removing stale INC-212 flips 3/3; other memories 0/3 |
-| Before/after | Simulated fraud 7.1% after disabling checks, 0.4% after corrected rollback |
-| Evidence eligibility | Requires the same tenant/service, a newer date, and a nonblank verifier, including fallback queries |
-| Approval | One Atlas transaction; live failure-injection checks verify full rollback and successful commit |
-| Reliability | 34 offline tests pass; failed/unstable/inconclusive replay states have explicit UI messaging and retry |
-| Frontend | Real API wiring; full browser walkthrough, production build, and lint pass |
-| Demo video | Exactly 60 seconds; real browser captures and source excerpts with generated narration; audio/video playback verified |
-
-The [validation report](docs/VALIDATION.md) distinguishes live tests from mocked failure cases and records the remaining limits. The public tunnel is temporary and requires the local server to stay running. [Deployment files](docs/DEPLOYMENT.md) are prepared for permanent hosting; the Docker build has not been run because the local Docker engine is unavailable.
-
-The embedding cache stores only query vectors; tenant-specific memories and retrieval results are never cached. Repeating the incident for rerun and tenant checks reuses its vector while each search still applies fresh Atlas eligibility filters. For other low-tier Voyage checks, `scripts/isolation_check.py --interval 21` spaces embedding requests.
-
-## Development tools
-
-`.mcp.json` configures the local MongoDB MCP server using `tools/mongodb-mcp.sh`. It reads the root `.env` and defaults to read-only. The application uses PyMongo directly. MongoDB's Agent Skills and query-prompting guidance from the resource guide are useful development aids; they are not application runtime dependencies.
-
-For a fresh real-model decision and replay, run `scripts/flip_test.py`, then `scripts/demo_check.py --execute` from `backend/`. These checks do not reset the demo. For the full reset/approval/rerun path, use `scripts/demo_rehearsal.py` or the optional browser checker in [VALIDATION.md](docs/VALIDATION.md).
-
-Validated local provider settings (keep the actual key only in the ignored `.env`):
+Fill the ignored root `.env` with `MONGODB_URI`, `VOYAGE_API_KEY`, `LLM_PROVIDER`, `LLM_MODEL`, and `LLM_API_KEY`. Set `LLM_BASE_URL` for an OpenAI-compatible provider. The validated configuration is:
 
 ```dotenv
 LLM_PROVIDER=openai
 LLM_BASE_URL=https://openrouter.ai/api/v1
 LLM_MODEL=nvidia/nemotron-3.5-super-vl:free
-LLM_API_KEY=your_openrouter_key
 ```
 
-The [submission description](docs/submission/DESCRIPTION.md), [measured run](docs/submission/validated-run.json), and one-minute video are prepared. Final team details, event Sandbox confirmation, and competition submission are deferred at the user's request. GitHub About changes require the repository owner's account; [exact metadata and command](docs/DEPLOYMENT.md#github-about-owner-only-step) are provided.
+Model availability, quotas, and latency depend on the provider. The internal database name remains `memory_court` for compatibility. Keep actual keys out of source control. If local DNS cannot resolve Atlas SRV records, the optional `MONGODB_DNS_NAMESERVERS` setting is documented in [.env.example](.env.example).
+
+**Backend:** index setup with `--seed` replaces demo documents. Coordinate before using a shared cluster.
+
+```bash
+cd backend
+source .venv/bin/activate
+python scripts/setup_atlas.py --seed
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1
+```
+
+**Frontend, in a second terminal:**
+
+```bash
+cd Recall-Trace/frontend  # or frontend/ within your existing checkout
+npm ci
+npm run dev
+```
+
+Open **http://localhost:5173**. API documentation: **http://localhost:8000/docs**. The frontend proxies `/api` to the backend. Use one backend worker because simulator state is process-local.
+
+## Tested, with clear boundaries
+
+Latest validation on November 14, 2026:
+
+- **44 offline backend tests** passed, including replay invariants, failures, thresholds, and tenant refusal.
+- **Real-service browser walkthrough** passed through correction, rerun, and tenant isolation using Atlas, Voyage, and the model provider.
+- **Real Atlas transaction tests** verified successful commits and rollback after injected failures; embeddings were mocked for those isolated fixtures.
+- **Frontend build/lint and desktop/mobile tab checks** passed; failure-state browser checks used explicitly mocked responses.
+
+```bash
+# From the repository root; offline checks require no service credentials
+backend/.venv/bin/python -m unittest discover -s backend/scripts -p '*_test.py' -v
+npm --prefix frontend run build
+npm --prefix frontend run lint
+
+# LIVE test: requires services and a running backend; resets shared demo data
+cd backend
+.venv/bin/python scripts/demo_rehearsal.py
+```
+
+For browser QA, install `backend/requirements-dev.txt` and Chromium via `python -m playwright install chromium` inside the backend virtual environment. See [the latest test report](docs/TEST_REPORT.md) and [detailed validation history](docs/VALIDATION.md) for commands, measured results, and artifacts.
+
+## Prototype limits
+
+- The checkout system and metrics are synthetic. This is not production payments software.
+- The identity picker demonstrates tenant-scoped access; it is not production authentication.
+- Retrieval returns up to four eligible memories. Replay explains only that recorded context and one decision step.
+- Three trials per variant are a practical demo budget, not statistical confidence. Failed, unstable, and tied comparisons remain inconclusive.
+- The optional [pairwise backend investigation](docs/PAIRWISE_REPLAY.md) is implemented and tested, but **excluded from the demo UI and main presentation**. Normal replay tests individual memories only.
+- Permanent deployment files are prepared; the Docker image has not been built/tested locally. The public tunnel is temporary.
+
+## Submission and project guide
+
+- [Cerebral Valley description](docs/submission/DESCRIPTION.md)
+- [Submission checklist and materials](docs/submission/README.md)
+- [Track requirements and implementation mapping](docs/HACKATHON_ALIGNMENT.md)
+- [Three-minute judging runbook](docs/JUDGING.md)
+- [Architecture and data contracts](docs/BRIEF.md)
+- [Deployment](docs/DEPLOYMENT.md) · [Contributing](CONTRIBUTING.md)
+
+Team roster, the final Cerebral Valley entry, and event-issued Sandbox provenance still need confirmation. A working Atlas connection alone does not establish finalist eligibility. This repository does not claim that an external submission has been completed.

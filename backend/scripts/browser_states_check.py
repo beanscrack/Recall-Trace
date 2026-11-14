@@ -38,6 +38,7 @@ with sync_playwright() as p:
         page = context.new_page()
         page.route('**/api/decisions/' + id_, lambda route: route.fulfill(json=fixture))
         page.goto(base, wait_until='networkidle')
+        page.get_by_role('tab', name='3 Replay memories', exact=True).click()
         page.get_by_role('button', name='Retry replay', exact=True).wait_for()
         assert page.get_by_role('button', name='Check against evidence', exact=True).count() == 0
         if state == 'incomplete':

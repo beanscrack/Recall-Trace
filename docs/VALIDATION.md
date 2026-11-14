@@ -2,7 +2,11 @@
 
 Current provider: OpenRouter `nvidia/nemotron-3.5-super-vl:free`. Current embedding model: Voyage `voyage-4`, 1024 dimensions. Credentials stay in the ignored root `.env`.
 
-## Checks that passed
+## Latest update
+
+The current tabbed UI and optional backend pair investigation have been tested: **44 offline tests**, production build/lint, live browser walkthrough, Atlas transaction checks, and a live six-pair run. See [TEST_REPORT.md](TEST_REPORT.md) for current results. Pair controls have since been removed from the demo UI; the main presentation uses single-memory replay only. Earlier measurements below are retained as validation history.
+
+## Earlier checks that passed
 
 | Check | What was actually verified |
 | --- | --- |

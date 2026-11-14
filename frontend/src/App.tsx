@@ -38,11 +38,12 @@ function Count({ value, fmt, fromZero }: { value: number; fmt: (n: number) => st
   const [shown, setShown] = useState(fromZero ? 0 : value)
   const last = useRef(fromZero ? 0 : value)
   useEffect(() => {
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     const start = last.current
     const t0 = performance.now()
     let raf = 0
     const tick = (t: number) => {
-      const p = Math.min(1, (t - t0) / 180)
+      const p = reducedMotion ? 1 : Math.min(1, (t - t0) / 180)
       last.current = start + (value - start) * p
       setShown(last.current)
       if (p < 1) raf = requestAnimationFrame(tick)
@@ -60,27 +61,31 @@ function Wait({ text }: { text: string }) {
     const id = setInterval(() => setS((n) => n + 1), 1000)
     return () => clearInterval(id)
   }, [])
-  return <p className="font-mono text-sm text-dim">{text} {s}s</p>
+  return <p role="status" className="font-mono text-sm text-dim">{text} {s}s</p>
 }
 
 function Label({ children }: { children: ReactNode }) {
   return <div className="text-xs uppercase tracking-[0.14em] text-dim">{children}</div>
 }
 
-function Section({ n, title, active, children }: { n: string; title: string; active: boolean; children?: ReactNode }) {
-  // Bring a section into view when its step happens, so the presenter never has to scroll.
-  const ref = useRef<HTMLElement>(null)
-  const wasActive = useRef(active)
-  useEffect(() => {
-    if (active && !wasActive.current) ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    wasActive.current = active
-  }, [active])
+const STEP_GUIDE: Record<string, { description: string; waiting: string }> = {
+  '01': { description: 'A checkout incident arrives. The agent will search stored incident memories and choose a response.', waiting: '' },
+  '02': { description: 'See the action the agent chose, its simulated impact, and the memories it retrieved from Atlas.', waiting: 'Run the agent to see its decision and retrieved memories.' },
+  '03': { description: 'Black Box Replay removes one memory at a time and repeats the same decision. A flip means the agent chose a different action. Replay never executes tools.', waiting: 'Contest the decision to investigate which memory influenced it.' },
+  '04': { description: 'Compare the candidate memory against newer verified evidence. A person must approve any change to stored memory.', waiting: 'Check an influential memory against evidence to review a proposed correction.' },
+  '05': { description: 'Run the same incident with fresh Atlas retrieval and compare the measured outcomes.', waiting: 'Approve a memory change to unlock the comparison.' },
+  '06': { description: 'Switch to a different company. Search results must stay within its tenant, and direct access to another tenant’s memory must be refused.', waiting: '' },
+}
+
+function Section({ n, title, active, visible = true, children }: { n: string; title: string; active: boolean; visible?: boolean; children?: ReactNode }) {
   return (
-    <section ref={ref} className={`mt-16 scroll-mt-6 transition-opacity duration-150 ${active ? '' : 'opacity-30'}`}>
+    <section id={`step-${n}`} role="tabpanel" aria-labelledby={`tab-${Number(n) - 1}`} hidden={!visible} tabIndex={0} className={`demo-panel mt-6 rounded-xl border p-5 sm:p-7 ${active ? 'border-line bg-panel' : 'border-line/60'}`}>
       <h2 className="mb-5 flex items-baseline gap-3 border-b border-line pb-3 text-xs uppercase tracking-[0.14em] text-dim">
         <span className="font-mono">{n}</span>
-        <span>{title}</span>
+        <span className="text-base font-semibold tracking-normal normal-case text-fg">{title}</span>
+        {!active && <span className="ml-auto tracking-normal normal-case">Upcoming</span>}
       </h2>
+      <p className="mb-6 max-w-[760px] text-sm leading-relaxed text-dim">{active ? STEP_GUIDE[n].description : STEP_GUIDE[n].waiting}</p>
       {active && children}
     </section>
   )
@@ -89,12 +94,13 @@ function Section({ n, title, active, children }: { n: string; title: string; act
 function Btn({ primary, busy, busyLabel = 'Running…', disabled, onClick, children }: {
   primary?: boolean; busy?: boolean; busyLabel?: string; disabled?: boolean; onClick: () => void; children: ReactNode
 }) {
-  const look = primary ? 'bg-white text-black border-white' : 'bg-transparent text-fg border-line hover:border-dim'
+  const look = primary ? 'bg-white text-black border-white shadow-sm hover:bg-white/90' : 'bg-panel text-fg border-line hover:border-dim hover:bg-white/5'
   return (
     <button
       onClick={onClick}
       disabled={busy || disabled}
-      className={`rounded-[5px] border px-4 py-2 text-sm font-medium disabled:cursor-default disabled:opacity-50 ${look}`}
+      aria-busy={busy || undefined}
+      className={`ui-button rounded-lg border px-4 py-2 text-sm font-medium disabled:cursor-default disabled:opacity-50 ${look}`}
     >
       {busy ? busyLabel : children}
     </button>
@@ -102,16 +108,16 @@ function Btn({ primary, busy, busyLabel = 'Running…', disabled, onClick, child
 }
 
 function Err({ text }: { text: string }) {
-  return text ? <p className="mt-3 font-mono text-sm text-dim">{text}</p> : null
+  return text ? <p role="alert" className="mt-3 rounded border border-bad/40 bg-bad/5 p-3 font-mono text-sm break-words text-fg">{text}</p> : null
 }
 
 function Panel({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <div className={`min-w-0 rounded-[5px] border border-line bg-panel p-6 ${className}`}>{children}</div>
+  return <div className={`surface min-w-0 rounded-xl border border-line bg-panel p-6 ${className}`}>{children}</div>
 }
 
 function Gauge({ label, value, red }: { label: string; value: number; red?: boolean }) {
   return (
-    <div>
+    <div className="rounded-lg border border-line bg-bg/60 p-5">
       <Label>{label}</Label>
       <div className={`mt-1 font-mono text-[56px] leading-none font-medium ${red ? 'text-bad' : ''}`}>
         <Count value={value} fmt={pct} />
@@ -154,7 +160,8 @@ function ReplayTable({ decision, replay }: { decision: Decision; replay: Replay 
     })),
   ]
   return (
-    <table className="w-full border-collapse">
+    <div className="overflow-x-auto rounded-[5px] border border-line p-3" role="region" aria-label="Replay comparisons" tabIndex={0}>
+    <table className="w-full min-w-[600px] border-collapse">
       <thead>
         <tr className="text-left text-xs uppercase tracking-[0.14em] text-dim">
           <th className="pb-3 pl-4 font-normal">Memory removed</th>
@@ -182,6 +189,7 @@ function ReplayTable({ decision, replay }: { decision: Decision; replay: Replay 
         ))}
       </tbody>
     </table>
+    </div>
   )
 }
 
@@ -228,7 +236,7 @@ function Isolation({ user, acmeMemoryId }: { user: User; acmeMemoryId: string })
       </Btn>
       <Err text={search.err} />
       {results && (
-        <div className="mt-8 grid grid-cols-[auto_1fr] items-start gap-10">
+        <div className="mt-8 grid grid-cols-1 items-start gap-6 sm:grid-cols-[auto_1fr] sm:gap-10">
           <div>
             <Label>Acme memories returned</Label>
             <div className="mt-1 font-mono text-[64px] leading-none font-medium">{foreign}</div>
@@ -248,9 +256,9 @@ function Isolation({ user, acmeMemoryId }: { user: User; acmeMemoryId: string })
       )}
 
       <div className="mt-12"><Label>Direct read of an Acme memory ID</Label></div>
-      <div className="mt-3 flex gap-3">
+      <div className="mt-3 flex flex-wrap gap-3">
         <input value={memId} onChange={(e) => setMemId(e.target.value.trim())} placeholder="memory id" spellCheck={false}
-          className="w-72 rounded-[5px] border border-line bg-transparent px-3 py-2 font-mono text-sm outline-none focus:border-dim" />
+          aria-label="Acme memory ID" className="w-72 max-w-full rounded-[5px] border border-line bg-transparent px-3 py-2 font-mono text-sm outline-none focus:border-dim" />
         <Btn busy={read.busy} busyLabel="Requesting…" disabled={!memId}
           onClick={() => read.run(async () => {
             setRefused(null)
@@ -284,6 +292,13 @@ function Isolation({ user, acmeMemoryId }: { user: User; acmeMemoryId: string })
 
 export default function App() {
   const [user, setUser] = useState<User>('sre-oncall')
+  const [page, setPage] = useState(0)
+  const goTo = (step: number) => {
+    setPage(step)
+    if (step === 5) setUser('platform-lee')
+    else setUser((current) => TENANT[current] === 'globex' ? 'sre-oncall' : current)
+    window.scrollTo({ top: 0, behavior: 'instant' })
+  }
   const [sim, setSim] = useState<Sim | null>(null)
   const [decision, setDecision] = useState<Decision | null>(null)
   const [rerun, setRerun] = useState<Decision | null>(null)
@@ -319,6 +334,7 @@ export default function App() {
     await api(user, '/demo/reset', {})
     setDecision(null)
     setRerun(null)
+    goTo(0)
     remember(undefined, undefined)
     setSim(await api<Sim>(user, '/sim'))
   })
@@ -328,6 +344,7 @@ export default function App() {
     setRerun(null)
     setSim(d.sim_after)
     remember(d._id, undefined)
+    goTo(1)
   })
   const contest = () => replayStep.run(async () => {
     const id = decision!._id
@@ -335,10 +352,12 @@ export default function App() {
     setDecision((d) => d && { ...d, contested })
     const r = await api<Replay>(user, `/decisions/${id}/replay`, {})
     setDecision((d) => d && { ...d, replay: r, verdict: null })
+    goTo(2)
   })
   const propose = () => verdictStep.run(async () => {
     const v = await api<Verdict>(user, `/decisions/${decision!._id}/verdict`, {})
     setDecision((d) => d && { ...d, verdict: v })
+    goTo(3)
   })
   const approve = () => approveStep.run(async () => {
     const v = await api<Verdict>(user, `/verdicts/${verdict!._id}/approve`, {})
@@ -355,47 +374,86 @@ export default function App() {
   const culprit = replay?.ablations.find((a) => a.removed_memory_id === replay.culprit_memory_id)
   const runs = decision ? (decision.retrieved.length + 1) * 3 : 0
   const approved = verdict?.status === 'approved'
+  const stage = globex ? 5 : !decision ? 0 : !replay ? 1 : !verdict ? 2 : !approved ? 3 : 4
+  const steps = ['Run incident', 'Inspect decision', 'Replay memories', 'Review correction', 'Compare outcomes', 'Check isolation']
+  const nextMessage = globex ? 'Search as Globex, then try reading an Acme memory to verify the boundary.'
+    : !decision ? 'Start by running the agent on the checkout incident below.'
+    : !replay ? 'Inspect the decision, then contest it to investigate memory influence.'
+    : !verdict ? culprit ? 'A candidate memory was found. Check it against newer verified evidence.' : 'The replay is inconclusive. Review the results and retry if needed.'
+    : !approved ? verdict.outcome === 'no_action' ? 'The evidence did not support a change. The memory remains unchanged.' : 'Review the evidence and proposed change, then approve it when satisfied.'
+    : !rerun ? 'The change is approved. Rerun the same incident with fresh retrieval.'
+    : 'Compare the actual outcomes below, then check isolation with the second tenant.'
 
   return (
-    <div className="mx-auto max-w-[960px] px-6 pt-8 pb-32">
-      <header className="flex items-center justify-between border-b border-line pb-5">
-        <div className="flex items-baseline gap-4">
-          <h1 className="text-base font-semibold">RecallTrace</h1>
-          <span className="font-mono text-sm text-dim">{TENANT[user]}</span>
+    <div className="app-shell mx-auto max-w-[1120px] px-4 pt-5 pb-12 sm:px-6">
+      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-line pb-5">
+        <div className="flex items-center gap-3">
+          <span className="brand-mark" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M5 6h9a5 5 0 0 1 0 10H9m0-4-4 4 4 4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/><circle cx="5" cy="6" r="2" fill="currentColor"/></svg></span>
+          <h1 className="text-base font-semibold tracking-tight">RecallTrace</h1>
+          <span className="tenant-badge">{TENANT[user]}</span>
         </div>
         <div className="flex items-center gap-3">
-          <select value={user} onChange={(e) => setUser(e.target.value as User)} aria-label="Session user"
-            className="rounded-[5px] border border-line bg-bg px-3 py-2 font-mono text-sm outline-none">
-            {USERS.map((u) => <option key={u}>{u}</option>)}
+          <select title="Demo identity: determines the tenant used for requests" value={user} onChange={(e) => { const next = e.target.value as User; setUser(next); if (TENANT[next] === 'globex') setPage(5); else if (page === 5) setPage(0) }} aria-label="Session user"
+            className="rounded-lg border border-line bg-panel px-3 py-2 text-sm outline-none">
+            {USERS.map((u) => <option key={u} value={u}>{u === 'sre-oncall' ? 'Acme · On-call' : u === 'reviewer-dana' ? 'Acme · Reviewer' : 'Globex · Platform'}</option>)}
           </select>
           <Btn busy={reset.busy} busyLabel="Resetting…" onClick={resetDemo}>Reset demo</Btn>
         </div>
       </header>
+      {page === 0 ? <div className="hero my-7 rounded-xl border border-line p-6 sm:p-8">
+        <div className="flex flex-wrap items-center gap-3"><span className="eyebrow">AI memory governance</span><span className="text-xs text-dim">Interactive product demo</span></div>
+        <p className="mt-5 max-w-[760px] text-3xl font-semibold tracking-[-0.04em] sm:text-[42px] sm:leading-[1.12]">Better decisions start<br className="hidden sm:block" /> with better memory.</p>
+        <p className="mt-4 max-w-[660px] text-sm leading-relaxed text-dim sm:text-base">Trace a bad agent decision to the memories that influenced it. Review the evidence, approve a correction, and see what changes.</p>
+        <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-dim"><span>01 &nbsp; Investigate</span><span aria-hidden="true">→</span><span>02 &nbsp; Approve</span><span aria-hidden="true">→</span><span>03 &nbsp; Verify</span></div>
+        <details className="mt-5 border-t border-line pt-4 text-xs text-dim"><summary className="cursor-pointer">How this demo uses MongoDB Atlas</summary><p className="mt-3 max-w-[680px] leading-relaxed">Atlas stores memories, exact decision snapshots, corrections, and audit history. Vector Search retrieves relevant memories. Replay uses the recorded snapshot. Checkout actions and fraud metrics are simulated.</p></details>
+      </div> : <div className="my-7 flex items-center justify-between gap-4"><div><p className="text-xs text-dim">Memory governance / Checkout incident</p><p className="mt-2 text-2xl font-semibold tracking-tight">{steps[page]}</p></div><span className="eyebrow shrink-0">Demo workspace</span></div>}
+      <nav aria-label="Demo steps" className="step-nav sticky top-0 z-10 overflow-x-auto border-b border-line bg-bg/95 backdrop-blur">
+        <ol role="tablist" aria-label="Demo steps" className="flex min-w-max gap-1 sm:min-w-0">
+          {steps.map((label, i) => <li role="presentation" key={label} className="flex-1">
+            <button role="tab" id={`tab-${i}`} aria-controls={`step-0${i + 1}`} aria-selected={page === i} tabIndex={page === i ? 0 : -1} aria-label={`${i + 1} ${label}`} onClick={() => goTo(i)} onKeyDown={(e) => {
+              const target = e.key === 'ArrowRight' ? (i + 1) % steps.length : e.key === 'ArrowLeft' ? (i + steps.length - 1) % steps.length : e.key === 'Home' ? 0 : e.key === 'End' ? steps.length - 1 : null
+              if (target !== null) { e.preventDefault(); goTo(target); document.getElementById(`tab-${target}`)?.focus() }
+            }} className={`step-tab w-full px-3 py-4 text-left text-xs ${page === i ? 'selected text-fg' : 'text-dim hover:text-fg'}`} >
+              <span className="step-number mr-2">{i + 1}</span>{label}
+            </button>
+          </li>)}
+        </ol>
+      </nav>
+      <aside className="guidance mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line px-4 py-3" aria-label="Current demo step">
+        <div><p className="text-xs font-semibold uppercase tracking-wider text-dim">{`Viewing ${page + 1} of 6 · ${steps[page]}`}</p><p className="mt-1 text-sm">{nextMessage}</p></div>
+        {page !== stage && <Btn onClick={() => goTo(stage)}>Resume current task →</Btn>}
+      </aside>
       <Err text={reset.err || loadErr} />
 
-      {globex ? (
-        <Isolation user={user} acmeMemoryId={replay?.culprit_memory_id ?? decision?.retrieved[0]?.memory_id ?? ''} />
-      ) : (
+      <div hidden={page !== 5}>
+        <Isolation key={replay?.culprit_memory_id ?? decision?.retrieved[0]?.memory_id ?? 'empty'} user={user} acmeMemoryId={replay?.culprit_memory_id ?? decision?.retrieved[0]?.memory_id ?? ''} />
+      </div>
         <>
-          <Section n="01" title="Incident" active>
+          <Section visible={page === 0} n="01" title="Incident" active>
             <p className="max-w-[720px]">{TASK}</p>
-            <div className="mt-8 mb-8 flex gap-16">
+            <div className="metrics mt-6 mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Gauge label="Checkout error rate" value={sim?.checkout_error_rate ?? 0} />
               <Gauge label="Fraud rate" value={sim?.fraud_rate ?? 0} red={(sim?.fraud_rate ?? 0) > FRAUD_RED} />
             </div>
+            <p className="mb-8 text-xs text-dim">Current simulator metrics · The incident above is the fixed task used for both decisions.</p>
             {!decision && <Btn primary busy={runStep.busy} onClick={runAgent}>Run agent</Btn>}
             {runStep.busy && <div className="mt-3"><Wait text="Retrieving memories, choosing an action…" /></div>}
             <Err text={runStep.err} />
           </Section>
 
-          <Section n="02" title="Decision" active={!!decision}>
+          <Section visible={page === 1} n="02" title="Decision" active={!!decision}>
             {decision && (
               <>
-                <Label>Agent called</Label>
-                <div className={`mt-1 font-mono text-[clamp(28px,7vw,56px)] leading-tight font-medium ${isBad(decision) ? 'text-bad' : ''}`}>{decision.action}</div>
+                <Label>Selected tool action</Label>
+                <div className={`mt-1 font-mono text-[clamp(28px,7vw,56px)] leading-tight break-words font-medium ${isBad(decision) ? 'text-bad' : ''}`}>{decision.action}</div>
                 <p className="mt-3 max-w-[720px] text-dim">{decision.rationale}</p>
+                <div className={`mt-5 rounded-lg border p-4 ${isBad(decision) ? 'border-bad/40 bg-bad/5' : 'border-line'}`}>
+                  <p className="font-medium">{isBad(decision) ? 'Unsafe simulated outcome' : 'Recorded simulated outcome'}</p>
+                  <p className="mt-1 text-sm">Fraud rate: {pct(decision.sim_before.fraud_rate)} → <strong>{pct(decision.sim_after.fraud_rate)}</strong> · Checkout errors: {pct(decision.sim_before.checkout_error_rate)} → {pct(decision.sim_after.checkout_error_rate)}</p>
+                </div>
                 <div className="mt-8"><Label>Memories retrieved</Label></div>
                 <table className="mt-2 mb-8 w-full border-collapse">
+                  <thead><tr className="text-left text-xs text-dim"><th className="py-3 pr-3 font-normal">ID</th><th className="py-3 font-normal">Memory used in this decision</th><th className="py-3 text-right font-normal">Similarity</th></tr></thead>
                   <tbody>
                     {decision.retrieved.map((m) => (
                       <tr key={m.memory_id} className="border-t border-line align-top first:border-t-0">
@@ -406,6 +464,7 @@ export default function App() {
                     ))}
                   </tbody>
                 </table>
+                {!replay && <p className="mb-3 text-sm text-dim">Next: contest this decision to compare repeated replays with each memory removed.</p>}
                 {!replay && <Btn primary busy={replayStep.busy} busyLabel="Replaying…" onClick={contest}>Contest decision</Btn>}
                 {decision.contested && (
                   <p className="mt-3 font-mono text-sm text-dim">Contested by {decision.contested.by} · {hhmm(decision.contested.at)}</p>
@@ -416,9 +475,10 @@ export default function App() {
             )}
           </Section>
 
-          <Section n="03" title="Investigation" active={!!replay}>
+          <Section visible={page === 2} n="03" title="Investigation" active={!!replay}>
             {decision && replay && (
               <>
+                <p className="mb-5 text-sm text-dim">Read the table: each row removes one memory. A higher flip rate means that removal changed the selected action more often.</p>
                 <ReplayTable key={replay._id} decision={decision} replay={replay} />
                 <p className="mt-4 text-sm text-dim">
                   Baseline matches original action: {pct(replay.baseline.stability, 0)} ·{' '}
@@ -447,14 +507,14 @@ export default function App() {
             )}
           </Section>
 
-          <Section n="04" title="Verdict" active={!!verdict}>
+          <Section visible={page === 3} n="04" title="Verdict" active={!!verdict}>
             {verdict && (
               <>
                 {verdict.memory_text && (
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <Panel>
                       <Label>{approved ? 'Quarantined' : 'Current memory'}</Label>
-                      <p className="mt-3 text-dim line-through">{verdict.memory_text}</p>
+                      <p className={`mt-3 text-dim ${approved ? 'line-through' : ''}`}>{verdict.memory_text}</p>
                     </Panel>
                     <Panel>
                       <Label>{verdict.outcome === 'correct' ? (approved ? 'Active, supersedes it' : 'Proposed replacement') : 'No replacement'}</Label>
@@ -476,23 +536,29 @@ export default function App() {
             )}
           </Section>
 
-          <Section n="05" title="Rerun" active={approved}>
+          <Section visible={page === 4} n="05" title="Rerun" active={approved}>
             {decision && approved && (
               <>
                 {!rerun && <Btn primary busy={rerunStep.busy} onClick={runAgain}>Reset simulation and rerun</Btn>}
                 {rerunStep.busy && <div className="mt-3"><Wait text="Same task, fresh retrieval…" /></div>}
                 <Err text={rerunStep.err} />
+                {rerun && <p className="mb-5 rounded-lg border border-line p-4 text-sm">{decision.action !== rerun.action ? 'The selected action changed after the approved memory update.' : 'The selected action stayed the same after the approved memory update.'} Simulated fraud rate: <strong>{pct(decision.sim_after.fraud_rate)} → {pct(rerun.sim_after.fraud_rate)}</strong>. Compare the retrieved memories below.</p>}
                 {rerun && (
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <OutcomeCard label="Before" d={decision} good={false} />
                     <OutcomeCard label="After" d={rerun} good />
                   </div>
                 )}
               </>
             )}
+            {rerun && <div className="mt-6"><Btn onClick={() => goTo(5)}>Next: verify tenant isolation</Btn></div>}
           </Section>
         </>
-      )}
+      <footer className="mt-6 flex items-center justify-between gap-3 border-t border-line pt-5">
+        <Btn disabled={page === 0} onClick={() => goTo(page - 1)}>← Previous</Btn>
+        <span className="text-xs text-dim">{page + 1} / {steps.length}</span>
+        <Btn disabled={page === steps.length - 1} onClick={() => goTo(page + 1)}>Next →</Btn>
+      </footer>
     </div>
   )
 }

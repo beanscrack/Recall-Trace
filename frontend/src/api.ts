@@ -11,6 +11,7 @@ export type Replay = {
   _id: string; runs_per_variant: number; status?: string; stable?: boolean
   baseline: Variant & { stability: number }
   ablations: (Variant & { removed_memory_id: string; flip_rate: number })[]
+  pairs?: { status: string; selection: string; candidate_memory_ids: string[]; ablations: (Variant & { removed_memory_ids: string[]; flip_rate: number })[] }
   culprit_memory_id: string | null
 }
 export type Verdict = {

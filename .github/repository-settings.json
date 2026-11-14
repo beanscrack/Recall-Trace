@@ -1,5 +1,18 @@
 {
   "repository": "beanscrack/Recall-Trace",
-  "description": "Agent memory governance with MongoDB Atlas, Vector Search, and counterfactual replay.",
-  "topics": ["mongodb", "mongodb-atlas", "vector-search", "agent-memory", "ai-agents", "counterfactual-replay", "fastapi", "react", "hackathon"]
+  "description": "RecallTrace: investigate AI memory influence, approve corrections, and verify changed decisions. Built with MongoDB Atlas and Voyage AI.",
+  "topics": [
+    "mongodb",
+    "mongodb-atlas",
+    "atlas-vector-search",
+    "voyage-ai",
+    "ai-agents",
+    "agent-memory",
+    "memory-governance",
+    "counterfactual-replay",
+    "fastapi",
+    "react",
+    "hackathon",
+    "cerebral-valley"
+  ]
 }

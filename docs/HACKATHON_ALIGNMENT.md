@@ -1,85 +1,34 @@
-# Hackathon resource guide alignment
+# Agents in Context Toronto — track alignment
 
-Reviewed against the supplied **Agents in Context Toronto: A MongoDB Hackathon Resource Guide**, November 14, 2026, pages 2–7. This is an implementation review, not evidence that live services have passed. The initial review had no service credentials; see the follow-up validation below for subsequent live Atlas and Voyage results.
+RecallTrace targets **Statement Two: Memory You Can Govern** at **Agents in Context Toronto: a MongoDB Hackathon**, November 14, 2026.
 
-## Required track capabilities
+This mapping follows the supplied event resource guide. It distinguishes implemented behavior from eligibility or submission details that require organizer/account confirmation.
 
-RecallTrace targets statement two, **Memory You Can Govern** (page 2).
-
-| Requirement | Implementation | Verification / remaining gap |
+| Track requirement | Implementation | Evidence |
 | --- | --- | --- |
-| Event-issued Atlas Sandbox (page 3) | `MONGODB_URI` connects PyMongo to Atlas | Must confirm the cluster was created through the event invitation; a hostname alone cannot establish eligibility |
-| Persist and retrieve memory with Vector Search | `embeddings.py`, `retrieval.py`, `db.py` | Query uses `$vectorSearch`; live sandbox and index-readiness checks remain |
-| Memory affects the next run | `agent.py` records retrieval; `court.py` quarantines and inserts a newly embedded version | Pass the real LLM flip gate and corrected rerun; the mock UI is not proof |
-| Tenant separation | Session-derived tenant filter inside Vector Search; direct-read refusal and access log | Run `scripts/isolation_check.py` and verify refused direct reads |
-| Expiry and correction | `expires_at` and active-status retrieval filters; versioned correction after approval | Verify expired seed memory is absent and correction links are intact in Atlas |
-| Explain behavioral influence | Recorded prompt/model/tools/text snapshots; repeated leave-one-out replay | Offline tests pass; measure real-provider variability during rehearsal |
-| Public repository and accessible demo (page 3) | Repository is public | Dashboard is currently a mock prototype; deploy/wire a working demo and verify access |
+| Atlas and Vector Search persist and retrieve memory | Six Atlas collections; Voyage document/query embeddings; `$vectorSearch` in `retrieval.py` | Live retrieval and both vector indexes verified |
+| Memory changes the next action | Approved replacement is retrieved in the same incident's next run | Validated disable-fraud-checks → rollback demonstration |
+| Rules for who can read memories | Session-derived tenant filters inside Vector Search; scoped direct reads | Live Globex search and logged Acme read refusal; identity picker is a demo mechanism |
+| Rules for memory lifetime | `expires_at` and `status` filters, plus live-field rechecks for index lag | Expired/quarantined memories excluded during validation |
+| Corrections are governed | Newer, same-tenant/service, verified evidence; named human approval | Atomic quarantine/replacement/version-link transaction and failure-injection rollback tests |
+| Explain memory influence | Original decision snapshot; repeated baseline and individual-removal tool comparisons | Stable 3/3 baseline and 3/3 action changes for stale-memory removal in the recorded run |
+| Public source and accessible demo | Public GitHub and temporary app/video links | Links provided in README; keep the tunnel and backend running |
+| Event Atlas Sandbox | Application connects to Atlas; invitation provenance is not visible in code | Team must confirm event-issued project/cluster creation before claiming eligibility |
 
-## Why Atlas is essential
+## Why Atlas and Voyage matter
 
-Atlas is the source of retrievable memory and the persistent record of decisions, replay measurements, evidence, verdicts, and access events. Correcting a memory changes its retrieval eligibility and introduces a new embedded version for the next run. Replay reads stored decision snapshots instead of querying current memories, preserving an auditable comparison.
+Voyage turns query and memory text into embeddings. Atlas Vector Search retrieves semantically relevant memories while applying governance filters. Atlas also preserves exact decision context, actual replay outcomes, approved versions, and access events. Correcting a memory changes what fresh retrieval can return.
 
-The current query correctly uses tenant, status, and date pre-filters, all indexed as filter fields. MongoDB documents these supported [Vector Search filters](https://www.mongodb.com/docs/vector-search/query/aggregation-stages/vector-search-stage/). Voyage calls distinguish query embeddings from document embeddings, as recommended in the [official text embedding documentation](https://www.mongodb.com/docs/voyageai/models/text-embeddings/). Index dimensions must remain equal to `EMBEDDING_DIM` (1024 by default).
+Replay intentionally does not re-query current memories: it uses the recorded snapshot and never executes tool actions. Similarity scores do not prove influence; repeated tool-choice comparisons provide evidence of influence, not mathematical causation.
 
-The simulator is process-local, with state snapshots stored in Atlas decisions. It does not provide durable simulation state or multi-worker consistency. Run one backend worker for this demo; do not describe it as a durable workflow engine.
+The default context is up to four memories, with three calls per replay variant. Pairwise investigation remains an optional backend feature and is excluded from the current demo UI. See [PAIRWISE_REPLAY.md](PAIRWISE_REPLAY.md).
 
-## Guide technologies: required versus optional
+## Resources versus required runtime technologies
 
-| Resource in the guide | Relevance and decision |
-| --- | --- |
-| Atlas Sandbox + Vector Search | Required and central to the chosen track |
-| Voyage embeddings | Already used for memory, evidence, and query vectors |
-| Schema validation | Memory validator requires tenant, status, version, and timestamps; setup must be run against Atlas |
-| MongoDB MCP server | Repository config exists and defaults to read-only; live connection remains unverified |
-| MongoDB Agent Skills / query-prompting guide | Recommended developer aids; installation/use has not been verified |
-| Atlas Managed MCP / marketplace connectors | Alternative development connectivity; not needed in addition to the configured local MCP server |
-| Atlas Search, automated embeddings, reranking | Optional retrieval approaches; explicit Voyage vectors and Vector Search already satisfy this project's needs |
-| LangChain / LangGraph / LangSmith | Optional libraries and tracing tools; the single-step agent does not need a workflow framework |
-| Change streams, checkpoint/resume, GraphRAG | Relevant to other tracks or later expansion; not required for this track's demo |
-| ElevenLabs | Optional voice integration and separate partner prize; no voice feature is currently justified |
+Atlas and Vector Search are central to the selected track; Voyage is our embedding provider. MongoDB MCP configuration is included as an optional development aid. Agent Skills, LangGraph, LangSmith, ElevenLabs, and change streams are not claimed as implemented runtime dependencies. Adding every partner technology is not necessary to explain this track's memory-governance loop.
 
-## Concrete gaps before judging
+## Submission materials
 
-1. Configure keys and confirm use of the event sandbox. Create the indexes, verify `queryable`, then seed. Setup now refuses to seed when the memory index times out.
-2. Run the real-provider flip test. Do not adjust or fabricate replay outcomes to obtain a desired result.
-3. Wire the dashboard to the existing API; its present controls and metrics use mock data.
-4. Run one incident through retrieval, decision, replay, review, human approval, and fresh retrieval. Record actual actions and simulator snapshots.
-5. Verify tenant isolation, expiry, quarantine, version links, and access logs against Atlas.
-6. ~~Evidence lookup~~ Resolved: evidence must be same-tenant, newer than the memory, and have a non-empty `verified_by` (vector path and fallback). Service-tag matching is still unneeded for the one-evidence seed set.
-7. ~~Non-atomic approval~~ Resolved: approval runs in one Atlas transaction (quarantine, insert version+1, link, mark approved); verified live.
-8. Session identities are a demo picker, not authentication. Reset endpoints are demo utilities. Do not expose a shared write-enabled demo as a secure multi-user service.
+The event guide requests a public repository, a one-minute video showing code and functionality, a concise description, and all team members added in Cerebral Valley. It specifies original work, teams of up to four, and an event-issued Atlas Sandbox for finalist eligibility.
 
-## Submission checklist from page 3
-
-- Use the event-issued Atlas Sandbox project and cluster.
-- Submit through the Cerebral Valley platform by **5:00 PM Toronto time on November 14**.
-- Include the public repository, a concise project description, and a **one-minute video** showing today's code and functionality.
-- Verify video and audio playback; add every team member to the submission.
-- Ensure the demo link is accessible and prepare the live in-person demonstration.
-
-## Repository identity
-
-Product: **RecallTrace**. Repository: [beanscrack/Recall-Trace](https://github.com/beanscrack/Recall-Trace). The owner renamed it during the live validation work.
-
-Suggested GitHub description: "Agent memory governance with MongoDB Atlas, Vector Search, and counterfactual replay."
-
-Suggested topics: `mongodb`, `mongodb-atlas`, `vector-search`, `agent-memory`, `ai-agents`, `counterfactual-replay`, `fastapi`, `react`, `hackathon`.
-
-Renaming the GitHub repository or editing its About settings requires an owner/admin account. Keep the internal database namespace `memory_court` for existing deployments; a product rename does not require migrating or reseeding team data.
-
-## Follow-up live validation
-
-Atlas and Voyage are now configured in the local ignored `.env`. The backend supports an optional process-local DNS override because system DNS omitted valid Atlas SRV records. A fresh application connection passed, both vector indexes report READY/queryable with 1024 dimensions, and live Voyage document/query embeddings returned 1024 dimensions.
-
-The strengthened isolation script passed all six live nonempty searches with tenant, active-status, and expiry assertions, plus both refused cross-tenant direct reads and their access logs. Voyage returned a 3-RPM limit during the first attempt; rerunning with `--interval 21` passed. No demo data was reset or reseeded.
-
-Existing Atlas records show `disable_fraud_checks`, an approved correction, and a `rollback_deployment` rerun. Correction status, version links, reviewer metadata, and replacement embedding dimensions passed inspection. These stored records do not establish that a fresh run using the current local configuration passes. OpenAI gpt-4.1-mini is now configured locally, but the live preflight returns HTTP 429 / credit_balance_exhausted.
-
-All 20 offline backend checks passed. Current task ownership and remaining work are tracked in [TASKS.md](TASKS.md).
-
-A subsequent `demo_check.py` run passed live Atlas/Voyage API checks, session and tenant guards, refusal logging, and stored decision/replay/verdict serialization using in-process HTTP. All 22 offline checks passed, including failure regression tests confirming no simulated action or decision write after retrieval/LLM failure. The `--execute` path reports the billing blockage before touching demo data; fresh OpenAI replay remains unverified.
-
-## Final implementation follow-up
-
-The complete Super VL HTTP and public-browser rehearsals now pass, including real approval and rerun. Same-service/newer/verified evidence eligibility and safe fallback are implemented. Live Atlas fault injection verified transaction rollback and atomic commit. The UI distinguishes replay failures from flips and provides retry controls; 32 offline tests and three separately mocked browser states pass. A 60-second narrated video and temporary public app are accessible and verified. Deployment files are prepared; Docker engine validation, owner-only About settings, and user-deferred final submission details remain distinct limits. See [VALIDATION.md](VALIDATION.md) and [DEPLOYMENT.md](DEPLOYMENT.md).
+Use [the submission package](submission/README.md), [judging runbook](JUDGING.md), and [latest test report](TEST_REPORT.md). Final team details, Sandbox confirmation, and the actual external submission remain outstanding. A working demo does not itself establish compliance with those requirements.

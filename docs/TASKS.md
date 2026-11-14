@@ -1,5 +1,19 @@
 # RecallTrace demo tasks
 
+## Current handoff
+
+The tabbed judge demo, single-memory replay, human-approved correction, and tenant
+isolation are implemented and validated. All 44 offline tests pass; see
+[TEST_REPORT.md](TEST_REPORT.md) for live versus mocked checks. Pairwise replay is
+retained in the backend but excluded from the presentation UI.
+
+Remaining submission work: confirm the event Sandbox invitation, enter team
+members in Cerebral Valley, upload/verify the final video, and submit. Repository
+About metadata requires owner/admin access. See [submission/README.md](submission/README.md).
+
+The task records below describe earlier milestones and should be read as history.
+
+
 Owners reflect the team's original assignments; this checklist does not establish who is currently online or what is unpushed. Keep tasks updated as results are verified.
 
 | ID | Owner | Task | Status / acceptance |

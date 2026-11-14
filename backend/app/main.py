@@ -89,9 +89,9 @@ def contest(decision_id: str, body: ContestBody, s=Depends(session)):
 
 
 @app.post("/api/decisions/{decision_id}/replay")
-def run_replay(decision_id: str, s=Depends(session)):
+def run_replay(decision_id: str, include_pairs: bool = False, s=Depends(session)):
     _own_decision(decision_id, s)
-    return out(replay.run_replay(decision_id))
+    return out(replay.run_replay(decision_id, include_pairs=include_pairs))
 
 
 @app.post("/api/decisions/{decision_id}/verdict")

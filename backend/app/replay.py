@@ -5,6 +5,7 @@ Reads only the stored decisions document; never re-queries memories, never touch
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from datetime import datetime, timezone
+from itertools import combinations
 
 from bson import ObjectId
 
@@ -16,7 +17,7 @@ THRESHOLD = 2 / 3
 MAX_WORKERS = 15
 
 
-def run_replay(decision_id: str) -> dict:
+def run_replay(decision_id: str, include_pairs: bool = False) -> dict:
     """Replay recorded inputs only; the API checks decision ownership before calling.
 
     Rates use all N scheduled trials as the denominator. Failed requests occupy a
@@ -27,6 +28,9 @@ def run_replay(decision_id: str) -> dict:
     decision = db.decisions().find_one({"_id": ObjectId(decision_id)})
     if decision is None:
         raise Conflict("Decision not found")
+
+    if include_pairs and not 2 <= len(decision["retrieved"]) <= 4:
+        raise Conflict("Pair investigation supports snapshots with 2 to 4 memories")
 
     # Match agent.run_task's input transformation exactly, including ID strings.
     memories = [{"memory_id": str(m["memory_id"]), "text": m["text"]}
@@ -62,6 +66,8 @@ def run_replay(decision_id: str) -> dict:
         "runs_per_variant": RUNS_PER_VARIANT, "baseline": {}, "ablations": [],
         "culprit_memory_id": None, "original_action": original_action, "stable": False,
     }
+    if include_pairs:
+        doc["pairs"] = {"status": "not_run", "selection": "all_pairs", "ablations": [], "candidate_memory_ids": []}
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         baseline = summarize(list(executor.map(trial, [memories] * RUNS_PER_VARIANT)))
         baseline["stability"] = baseline["actions"].count(original_action) / RUNS_PER_VARIANT
@@ -94,6 +100,28 @@ def run_replay(decision_id: str) -> dict:
                 if highest >= THRESHOLD and len(leaders) == 1:
                     doc["culprit_memory_id"] = leaders[0]["removed_memory_id"]
                     doc["status"] = "influence_detected"
+
+            # Optional escalation: fresh baseline and singles must be complete and
+            # inconclusive before testing pairs. Never promote a pair to one culprit.
+            if include_pairs and doc["status"] == "no_clear_influence":
+                pairs = doc["pairs"]
+                indices = list(combinations(range(len(memories)), 2))
+                futures = [[executor.submit(trial, [m for k, m in enumerate(memories) if k not in pair])
+                            for _ in range(RUNS_PER_VARIANT)] for pair in indices]
+                for pair, runs in zip(indices, futures):
+                    result = summarize([future.result() for future in runs])
+                    result["removed_memory_ids"] = [decision["retrieved"][i]["memory_id"] for i in pair]
+                    result["flip_rate"] = sum(a is not None and a != original_action for a in result["actions"]) / RUNS_PER_VARIANT
+                    pairs["ablations"].append(result)
+                pairs["status"] = "no_clear_influence"
+                if any(a["errors"] for a in pairs["ablations"]):
+                    pairs["status"] = "incomplete"
+                else:
+                    highest = max(a["flip_rate"] for a in pairs["ablations"])
+                    leaders = [a for a in pairs["ablations"] if a["flip_rate"] == highest]
+                    if highest >= THRESHOLD and len(leaders) == 1:
+                        pairs["status"] = "group_influence_detected"
+                        pairs["candidate_memory_ids"] = leaders[0]["removed_memory_ids"]
 
     doc["created_at"] = datetime.now(timezone.utc)
     doc["_id"] = db.replays().insert_one(doc).inserted_id

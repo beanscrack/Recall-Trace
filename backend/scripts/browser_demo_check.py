@@ -4,7 +4,7 @@ parser.add_argument('--reset',action='store_true',required=True,help='Explicitly
 parser.add_argument('--base-url',default='http://127.0.0.1:8000')
 args=parser.parse_args()
 from pathlib import Path
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import sync_playwright, expect
 
 BASE=args.base_url.rstrip('/')
 out=Path(__file__).resolve().parents[2]/'.local'/'qa'
@@ -20,7 +20,9 @@ with sync_playwright() as p:
    except Exception:pass
  page.on('response',response)
  page.goto(BASE,wait_until='networkidle')
- page.get_by_role('button',name='Reset demo',exact=True).click()
+ with page.expect_response(lambda r:r.url.endswith('/api/demo/reset') and r.request.method=='POST',timeout=120000) as reset_response:
+  page.get_by_role('button',name='Reset demo',exact=True).click()
+ assert reset_response.value.status==200
  page.get_by_role('button',name='Run agent',exact=True).wait_for(timeout=120000)
  page.get_by_role('button',name='Reset demo',exact=True).wait_for(timeout=120000)
  time.sleep(4)
@@ -50,6 +52,7 @@ with sync_playwright() as p:
  with page.expect_response(lambda r:r.url.endswith('/approve') and r.request.method=='POST',timeout=120000) as pending:
   page.get_by_role('button',name='Approve as reviewer-dana',exact=True).click()
  approval=pending.value.json();assert pending.value.status==200 and approval['approved_by']=='reviewer-dana'
+ page.get_by_role('tab',name='5 Compare outcomes',exact=True).click()
  page.get_by_role('button',name='Reset simulation and rerun',exact=True).wait_for(timeout=15000)
  with page.expect_response(lambda r:r.url.endswith('/api/run') and r.request.method=='POST',timeout=120000) as pending:
   page.get_by_role('button',name='Reset simulation and rerun',exact=True).click()
@@ -62,10 +65,11 @@ with sync_playwright() as p:
  print('PASS browser: approval, new retrieval, rollback and safer fraud rate',flush=True)
  page.get_by_label('Session user').select_option('platform-lee')
  assert page.get_by_role('heading',name='Decision').count()==0
- assert page.get_by_text(original['rationale'],exact=True).count()==0
+ assert not page.get_by_text(original['rationale'],exact=True).is_visible()
  with page.expect_response(lambda r:'/api/search?' in r.url,timeout=30000) as pending:
   page.get_by_role('button',name='Search as globex',exact=True).click()
  hits=pending.value.json();assert pending.value.status==200 and hits and all(m['tenant_id']=='globex' for m in hits)
+ expect(page.get_by_label('Acme memory ID')).to_have_value(replay['culprit_memory_id'])
  page.get_by_role('button',name='Request memory',exact=True).click()
  page.get_by_text('404 not found',exact=True).wait_for(timeout=15000)
  assert page.get_by_text('allowed: false',exact=False).count()>0

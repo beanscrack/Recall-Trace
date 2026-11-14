@@ -52,16 +52,19 @@ The repository is public and named `beanscrack/Recall-Trace`. The connected acco
 
 ```bash
 gh repo edit beanscrack/Recall-Trace \
-  --description 'Agent memory governance with MongoDB Atlas, Vector Search, and counterfactual replay.' \
+  --description 'RecallTrace: investigate AI memory influence, approve corrections, and verify changed decisions. Built with MongoDB Atlas and Voyage AI.' \
   --add-topic mongodb \
   --add-topic mongodb-atlas \
-  --add-topic vector-search \
-  --add-topic agent-memory \
+  --add-topic atlas-vector-search \
+  --add-topic voyage-ai \
   --add-topic ai-agents \
+  --add-topic agent-memory \
+  --add-topic memory-governance \
   --add-topic counterfactual-replay \
   --add-topic fastapi \
   --add-topic react \
-  --add-topic hackathon
+  --add-topic hackathon \
+  --add-topic cerebral-valley
 ```
 
 The same values are in `.github/repository-settings.json`. This file documents the desired settings; GitHub does not apply it automatically. Keep a permanent homepage unset until a persistent hosting URL exists.
